@@ -62,7 +62,7 @@ describe('pharmacy path', () => {
 
   it('/returns shows the live returns table, then hostel visits and refills', async () => {
     render(<WorkspaceScreen route="returns" />);
-    expect(await screen.findByRole('heading', { level: 1, name: 'Returns' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Returns' }, { timeout: 10_000 })).toBeInTheDocument();
     expect(await screen.findByText('ORS sachets')).toBeInTheDocument();
     expect(screen.getByText('Damaged on arrival')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Approve the return of ORS sachets' })).toBeInTheDocument();

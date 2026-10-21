@@ -14,6 +14,16 @@ function sourceOf(data: TodayData | null, extra: Partial<ClinicianTodaySource> =
 }
 
 describe('bookingsTodaySource', () => {
+  it('isolates rejected count requests and exposes per-metric retry loaders', async () => {
+    const bookings = vi.fn(async () => bookingsFor(NOW));
+    const critical = vi.fn(async () => 2);
+    const reports = vi.fn<() => Promise<number>>().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(4);
+    const source = bookingsTodaySource(bookings, { critical, reports }, () => NOW);
+    expect((await source.load())?.waiting.reportsToSign.count).toBeNull();
+    expect(await source.loadMetric?.('reportsToSign')).toBe(4);
+    expect(bookings).toHaveBeenCalledTimes(1);
+    expect(critical).toHaveBeenCalledTimes(1);
+  });
   it('builds the day from bookings and leaves what the API does not report empty', async () => {
     const data = await bookingsTodaySource(async () => bookingsFor(NOW), { critical: async () => 1, reports: async () => null }, () => NOW).load();
     expect(data?.slots.map((slot) => [slot.time, slot.kind])).toEqual([['09:30', 'done'], ['10:00', 'next'], ['10:20', 'requested'], ['11:30', 'missed']]);
@@ -36,6 +46,20 @@ describe('bookingsTodaySource', () => {
 });
 
 describe('ClinicianTodayViewModel', () => {
+  it('keeps metric retry failures local and falls back to shared loading for older sources', async () => {
+    const vm = new ClinicianTodayViewModel(sourceOf(fullDay(NOW), { loadMetric: async () => { throw new Error('offline'); } }));
+    await vm.load();
+    await vm.retryMetric('criticalResults');
+    expect(vm.data?.waiting.criticalResults.count).toBeNull();
+    expect(vm.data?.waiting.reportsToSign.count).toBe(3);
+    expect(vm.metricBusy.criticalResults).toBe(false);
+    expect(vm.status).toBe('ready');
+    const load = vi.fn(async () => fullDay(NOW));
+    const legacy = new ClinicianTodayViewModel({ load });
+    await legacy.load();
+    await legacy.retryMetric('reportsToSign');
+    expect(load).toHaveBeenCalledTimes(2);
+  });
   it('starts loading and becomes ready with a day', async () => {
     const vm = new ClinicianTodayViewModel(sourceOf(fullDay(NOW)), () => NOW);
     expect(vm.status).toBe('loading');

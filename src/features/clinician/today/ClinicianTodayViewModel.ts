@@ -1,5 +1,5 @@
 import { makeAutoObservable, runInAction } from 'mobx';
-import type { ClinicianTodaySource } from './todaySource';
+import type { ClinicianTodaySource, ReviewMetric } from './todaySource';
 import type { Availability, TodayData } from './todayModel';
 import { countdown, countdownSpoken, isQuietDay } from './todayModel';
 import type { MessageKey, Vars } from '@/i18n';
@@ -22,6 +22,8 @@ export class ClinicianTodayViewModel {
   now: Date;
   toast: TodayToast | null = null;
   availabilityBusy = false;
+  metricBusy: Record<ReviewMetric, boolean> = { criticalResults: false, reportsToSign: false };
+  private loadInFlight = false;
   private clock: ReturnType<typeof setInterval> | null = null;
 
   constructor(
@@ -33,6 +35,8 @@ export class ClinicianTodayViewModel {
   }
 
   async load(): Promise<void> {
+    if (this.loadInFlight || Object.values(this.metricBusy).some(Boolean)) return;
+    this.loadInFlight = true;
     this.status = 'loading';
     try {
       const data = await this.source.load();
@@ -47,6 +51,32 @@ export class ClinicianTodayViewModel {
       runInAction(() => {
         this.data = null;
         this.status = 'error';
+      });
+    } finally {
+      runInAction(() => { this.loadInFlight = false; });
+    }
+  }
+
+  async retryMetric(metric: ReviewMetric): Promise<void> {
+    if (this.status === 'loading' || this.metricBusy[metric]) return;
+    if (!this.source.loadMetric || !this.data) {
+      await this.load();
+      return;
+    }
+    this.metricBusy[metric] = true;
+    let count: number | null = null;
+    try {
+      const result = await this.source.loadMetric(metric);
+      if (result !== null && Number.isSafeInteger(result) && result >= 0) count = result;
+    } catch {
+      // Keep the failure local to this tile, including for injected sources.
+    } finally {
+      runInAction(() => {
+        if (this.data) {
+          this.data.waiting[metric] = { count };
+          this.status = isQuietDay(this.data) ? 'empty' : 'ready';
+        }
+        this.metricBusy[metric] = false;
       });
     }
   }

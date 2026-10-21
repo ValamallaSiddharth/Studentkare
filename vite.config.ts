@@ -81,6 +81,9 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': { target: API_TARGET, changeOrigin: false },
+      '/docs': { target: API_TARGET, changeOrigin: false },
+      '/openapi.json': { target: API_TARGET, changeOrigin: false },
+      '/redoc': { target: API_TARGET, changeOrigin: false },
     },
   },
 });

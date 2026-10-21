@@ -10,12 +10,24 @@ import type { Availability, NextConsult, SlotKind, TodayData, TodaySlot } from '
 export interface ClinicianTodaySource {
   /** Resolves null when the console is not connected to real schedules. */
   load(): Promise<TodayData | null>;
+  loadMetric?: (metric: ReviewMetric) => Promise<number | null>;
   /** Absent when the source cannot change availability. */
   setAvailability?: (value: Availability) => Promise<void>;
 }
 
-/** A count from a list endpoint, or null when it can't be read — one tile's "—", never the page. */
+export type ReviewMetric = 'criticalResults' | 'reportsToSign';
+
+/** Null retains failure information; the command center displays a zero fallback. */
 export type CountLoader = () => Promise<number | null>;
+
+async function readCount(load: CountLoader): Promise<number | null> {
+  try {
+    const count = await load();
+    return count !== null && Number.isSafeInteger(count) && count >= 0 ? count : null;
+  } catch {
+    return null;
+  }
+}
 
 async function totalOf(path: string): Promise<number | null> {
   try {
@@ -56,9 +68,10 @@ export function bookingsTodaySource(
   now: () => Date = () => new Date(),
 ): ClinicianTodaySource {
   return {
+    loadMetric: (metric) => readCount(metric === 'criticalResults' ? counts.critical : counts.reports),
     async load() {
       const today = now();
-      const [bookings, critical, reports] = await Promise.all([load(), counts.critical(), counts.reports()]);
+      const [bookings, critical, reports] = await Promise.all([load(), readCount(counts.critical), readCount(counts.reports)]);
       const todays = bookings.filter((booking) => isLive(booking) && sameLocalDay(booking.start, today));
       const upcoming = nextBooking(todays, today);
       const slots: TodaySlot[] = todays.map((booking) => ({

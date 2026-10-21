@@ -1,5 +1,4 @@
-import { makeAutoObservable, runInAction } from 'mobx';
-import { apiRequest } from '@/data/services/http';
+import { makeAutoObservable } from 'mobx';
 import type { ViewModel } from '@/core/store/ViewModel';
 
 export type CallStatus = 'IDLE' | 'CONNECTING' | 'CONNECTED' | 'ENDED';
@@ -83,30 +82,14 @@ export class TeleconsultViewModel implements ViewModel {
     this.chatInput = '';
   }
 
-  async endCall(): Promise<void> {
+  endCall(): void {
     if (this.timerRef) {
       clearInterval(this.timerRef);
       this.timerRef = null;
     }
     this.sessionStatus = 'ENDED';
-
-    // Generate E-Prescription upon call completion
-    try {
-      const response = await apiRequest<EPrescriptionSummary>('/teleconsult/eprescription', {
-        method: 'POST',
-        body: JSON.stringify({ doctorName: this.activeDoctorName, duration: this.callDurationSeconds }),
-      });
-
-      runInAction(() => {
-        // Only a prescription the server actually issued is shown.
-        this.ePrescription = response ?? null;
-      });
-    } catch (err: unknown) {
-      runInAction(() => {
-        this.ePrescription = null;
-        this.error = err instanceof Error ? err.message : 'No prescription was issued.';
-      });
-    }
+    this.ePrescription = null;
+    this.error = 'No prescription was issued. Teleconsultation has no connected prescribing service.';
   }
 
   reset(): void {
