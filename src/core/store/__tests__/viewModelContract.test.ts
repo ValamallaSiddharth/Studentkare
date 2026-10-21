@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { isObservable } from 'mobx';
+import { apiRequest } from '@/data/services/http';
 
 /**
  * Every ViewModel must be constructible and observable.
@@ -52,4 +53,16 @@ describe.each(VIEW_MODELS)('%s ViewModel', (_name, build) => {
     expect(() => viewModel.reset()).not.toThrow();
     expect(() => viewModel.dispose()).not.toThrow();
   });
+});
+
+it('does not request a prescription from an unavailable teleconsult service', () => {
+  const request = vi.mocked(apiRequest);
+  request.mockClear();
+  const viewModel = new TeleconsultViewModel();
+
+  viewModel.endCall();
+
+  expect(request).not.toHaveBeenCalled();
+  expect(viewModel.ePrescription).toBeNull();
+  expect(viewModel.error).toContain('No prescription was issued');
 });

@@ -5,7 +5,7 @@ import { navigate } from '@/lib/utils/workflowRouting';
 import { ClinicianConsoleFrame } from '../shared/ClinicianConsoleFrame';
 import { BookingRequestsPanel } from '../shared/BookingRequestsPanel';
 import { ClinicianTodayViewModel } from './ClinicianTodayViewModel';
-import { ClinicianTodayView } from './ClinicianTodayView';
+import { ClinicianCommandCenter } from './ClinicianCommandCenter';
 import { defaultTodaySource } from './todaySource';
 import type { ClinicianTodaySource } from './todaySource';
 import { longDate, shortDate } from './todayModel';
@@ -22,7 +22,7 @@ export const ClinicianTodayScreen = observer(function ClinicianTodayScreen({ sou
 
   return (
     <ClinicianConsoleFrame current="today" context={longDate(date)} contextShort={shortDate(date)}>
-      <ClinicianTodayView viewModel={viewModel} clinicianName={user.fullName} onNavigate={navigate} />
+      <ClinicianCommandCenter viewModel={viewModel} clinicianName={user.fullName} onNavigate={navigate} />
       <BookingRequestsPanel onChanged={() => void viewModel.load()} />
     </ClinicianConsoleFrame>
   );

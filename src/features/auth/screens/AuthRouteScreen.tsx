@@ -11,7 +11,9 @@ export function AuthRouteScreen() {
   const auth = useAuth();
   const mode = path === 'signup' ? 'signup' : 'login';
   const next = readReturnPath(location.search);
-  if (auth.status === 'authenticated' && auth.user) {
+  // An explicit visit to Sign in must show authentication, even when a prior
+  // session exists. AuthViewModel navigates after successful verification.
+  if (mode === 'signup' && auth.status === 'authenticated' && auth.user) {
     const target = next && canAccessRoute(next, auth.user.role) ? next : homeForRole(auth.user.role);
     return <Navigate to={`/${target}`} replace />;
   }
