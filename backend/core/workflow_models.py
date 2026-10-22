@@ -39,6 +39,109 @@ class Account(Base):
     # VENDOR only: PHARMACY | LAB | CLINIC | WELLNESS, set by a super admin. Its own
     # column, not a profile key, because PATCH /profile merges into the profile.
     partner_kind: Mapped[str] = mapped_column(String(12), default="", server_default="")
+    # A shared team account (services/team_accounts.py): one per role, signed in
+    # with a PIN, scoped to the test campus / test partner organisation so it sees
+    # no real student's data. Set only by the team-accounts command, never by an API.
+    is_team_account: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false())
+
+
+class StaffPinCredential(Base):
+    """A team account's sign-in PIN. Only a salted scrypt hash is kept, never the PIN.
+
+    Failed attempts count towards a lockout (auth.staff_pin_max_attempts within
+    auth.staff_pin_lockout_minutes). Platform plane (core/rule_l.py): neither group
+    role has any grant on it.
+    """
+    __tablename__ = "care_staff_pin_credentials"
+    account_id: Mapped[str] = mapped_column(ForeignKey("care_accounts.id"), primary_key=True)
+    pin_hash: Mapped[str] = mapped_column(String(255))
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    locked_until: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    created_at: Mapped[float] = mapped_column(Float)
+    rotated_at: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    last_sign_in_at: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+
+
+class AccountContact(Base):
+    """One way to reach an account: its email or its WhatsApp number, at most one of each.
+
+    ``verified_at`` is when a one-time code sent to it was entered (0 = not yet).
+    Only a verified contact can receive a sign-in code (services/contact_store.py),
+    so a mistyped or someone else's number never becomes a way in. Each value
+    belongs to one account. ``care_accounts.identifier`` stays the primary
+    contact. Platform plane (core/rule_l.py). Plan tier1-auth-password-2026-10-22 (A).
+    """
+    __tablename__ = "care_account_contacts"
+    __table_args__ = (UniqueConstraint("account_id", "kind", name="uq_account_contact_kind"),)
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    account_id: Mapped[str] = mapped_column(ForeignKey("care_accounts.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))   # EMAIL | WHATSAPP
+    value: Mapped[str] = mapped_column(String(254), unique=True, index=True)
+    verified_at: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    created_at: Mapped[float] = mapped_column(Float)
+
+
+class StudentInvite(Base):
+    """A partner college's invitation to a student account it created (B2B).
+
+    The student claims it through a one-time link sent to their email or WhatsApp
+    and a temporary password the college hands over separately. Only hashes of
+    the link token and the temporary password are kept. Wrong temporary passwords
+    lock it like a password. Platform plane (core/rule_l.py). Plan
+    tier1-auth-password-2026-10-22, amendment (b); services/student_invites.py.
+    """
+    __tablename__ = "care_student_invites"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    account_id: Mapped[str] = mapped_column(ForeignKey("care_accounts.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    temp_password_hash: Mapped[str] = mapped_column(String(255))
+    link_channel: Mapped[str] = mapped_column(String(16))   # EMAIL | WHATSAPP
+    university: Mapped[str] = mapped_column(String(160))
+    created_by: Mapped[str] = mapped_column(String)
+    created_at: Mapped[float] = mapped_column(Float)
+    expires_at: Mapped[float] = mapped_column(Float)
+    sent_at: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    claimed_at: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    locked_until: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+
+
+class AccountPassword(Base):
+    """An account's sign-in password. Only a salted, peppered scrypt hash is kept
+    (services/team_accounts.hash_pin), never the password.
+
+    Wrong tries count towards a lockout (auth.password_max_attempts, then
+    auth.password_lockout_minutes). Team accounts only for now; students follow
+    (plan tier1-auth-password-2026-10-22). Platform plane (core/rule_l.py): neither
+    group role has any grant on it. See services/account_password.py.
+    """
+    __tablename__ = "care_account_passwords"
+    account_id: Mapped[str] = mapped_column(ForeignKey("care_accounts.id"), primary_key=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    locked_until: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    created_at: Mapped[float] = mapped_column(Float)
+    updated_at: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    last_sign_in_at: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+
+
+class StudentPasscode(Base):
+    """A student's optional secret passcode (4, 6 or 8 characters). Only a salted,
+    peppered scrypt hash is kept (services/team_accounts.hash_pin), never the passcode.
+
+    Wrong tries count towards a lockout (auth.passcode_max_attempts, then
+    auth.passcode_lockout_minutes). Platform plane (core/rule_l.py): neither group
+    role has any grant on it. See services/student_passcode.py.
+    """
+    __tablename__ = "care_student_passcodes"
+    account_id: Mapped[str] = mapped_column(ForeignKey("care_accounts.id"), primary_key=True)
+    passcode_hash: Mapped[str] = mapped_column(String(255))
+    length: Mapped[int] = mapped_column(Integer)
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    locked_until: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    created_at: Mapped[float] = mapped_column(Float)
+    updated_at: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    last_sign_in_at: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
 
 
 class Session(Base):
@@ -47,11 +150,18 @@ class Session(Base):
     account_id: Mapped[str] = mapped_column(ForeignKey("care_accounts.id"), index=True)
     csrf_token: Mapped[str] = mapped_column(String(100))
     expires_at: Mapped[float] = mapped_column(Float, index=True)
+    # When this session's sign-in was proven with a one-time code (0: it wasn't,
+    # e.g. a passcode or a team PIN). A refresh keeps it. A student may replace a
+    # forgotten passcode only shortly after a code sign-in (services/student_passcode.py).
+    code_verified_at: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
 
 
 class RememberedDevice(Base):
-    """A device the student chose to be remembered on at sign-out. Grants no session:
-    it only lets the login screen offer the masked account and start an OTP for it."""
+    """A device that remembers a student's last sign-in (set after every student
+    sign-in, and by "remember me" at sign-out). Grants no session: it lets the
+    login screen offer the masked account and start an OTP for it, and it is the
+    proof that this device has signed in to the account before, which a passcode
+    sign-in needs (services/student_passcode.py)."""
     __tablename__ = "care_remembered_devices"
     token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     account_id: Mapped[str] = mapped_column(ForeignKey("care_accounts.id"), index=True)
@@ -76,6 +186,9 @@ class TwoFactorPending(Base):
     token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     account_id: Mapped[str] = mapped_column(ForeignKey("care_accounts.id"), index=True)
     expires_at: Mapped[float] = mapped_column(Float, index=True)
+    # Which first factor passed: CODE (a one-time code), PASSCODE or PIN. Only a
+    # code counts as code-proven for the session that follows.
+    first_factor: Mapped[str] = mapped_column(String(12), default="CODE", server_default="CODE")
 
 
 class OtpChallenge(Base):
@@ -88,6 +201,9 @@ class OtpChallenge(Base):
     expires_at: Mapped[float] = mapped_column(Float)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     consumed: Mapped[bool] = mapped_column(Boolean, default=False)
+    # VERIFY only: the signed-in account adding this contact. A code for one
+    # account's contact can never verify it for another.
+    account_id: Mapped[str] = mapped_column(String, default="", server_default="")
 
 
 class SignupGrant(Base):
@@ -98,6 +214,11 @@ class SignupGrant(Base):
     csrf_token: Mapped[str] = mapped_column(String(100))
     expires_at: Mapped[float] = mapped_column(Float)
     consumed: Mapped[bool] = mapped_column(Boolean, default=False)
+    # The other contact, proven with its own code during sign-up (services/signup_contacts.py):
+    # the email if the account signs up by WhatsApp, or the other way round.
+    second_channel: Mapped[str] = mapped_column(String(16), default="", server_default="")
+    second_identifier: Mapped[str] = mapped_column(String(254), default="", server_default="")
+    second_verified_at: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
 
 
 class RateBucket(Base):
@@ -604,7 +725,7 @@ class MedicationPlan(Base):
 
 
 class MedicationDose(Base):
-    """A logged dose occurrence. Unique per plan so duplicate logs cannot double-count."""
+    """A logged dose occurrence, taken or skipped. Unique per plan so duplicate logs cannot double-count."""
     __tablename__ = "care_medication_doses"
     __table_args__ = (UniqueConstraint("plan_id", "dose_date", "dose_time"),)
     id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -613,6 +734,8 @@ class MedicationDose(Base):
     dose_date: Mapped[str] = mapped_column(String(10))
     dose_time: Mapped[str] = mapped_column(String(8), default="")
     taken_at: Mapped[float] = mapped_column(Float, default=0.0)
+    # TAKEN or SKIPPED (the student said they skipped it). Only TAKEN counts as a dose taken.
+    outcome: Mapped[str] = mapped_column(String(8), default="TAKEN", server_default="TAKEN")
 
 
 class AvailabilitySlot(Base):
@@ -1109,6 +1232,45 @@ class ServiceProvider(Base):
     source_url: Mapped[str] = mapped_column(String(2000), default="")
     verified_at: Mapped[float] = mapped_column(Float, default=0.0)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_at: Mapped[float] = mapped_column(Float, default=0.0)
+
+
+class CareFacility(Base):
+    """A place a student can get care: a hospital, clinic, pharmacy, ambulance service or blood bank.
+
+    Curated by a super admin (any campus, or every campus when ``campus`` is
+    empty) or by a campus administrator (their own campus only). Reference data
+    about a place, never about a person, so it sits in the platform plane.
+
+    A listing reaches students only while it is active and its ``verified_on``
+    date is set and recent enough (``care_directory.verification_max_age_days``):
+    the directory never shows a place nobody has checked. ``source`` says how it
+    was checked ("Called the front desk", "Hospital website"). There is no bed
+    availability, rating or review field, by design.
+    """
+    __tablename__ = "care_facilities"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16), index=True)  # HOSPITAL | CLINIC | PHARMACY | AMBULANCE | BLOOD_BANK
+    name: Mapped[str] = mapped_column(String(160), index=True)
+    departments: Mapped[list] = mapped_column(JSON, default=list)
+    address: Mapped[str] = mapped_column(String(400), default="")
+    area: Mapped[str] = mapped_column(String(120), default="")
+    pincode: Mapped[str] = mapped_column(String(6), default="")
+    # Both or neither: a place with no coordinates is listed without directions or distance.
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
+    phone: Mapped[str] = mapped_column(String(32), default="")
+    emergency_24x7: Mapped[bool] = mapped_column(Boolean, default=False)
+    hours_text: Mapped[str] = mapped_column(String(200), default="")
+    source: Mapped[str] = mapped_column(String(200), default="")
+    source_url: Mapped[str] = mapped_column(String(2000), default="")
+    verified_on: Mapped[date | None] = mapped_column(Date, nullable=True, default=None)
+    # "" = every campus and the public page; otherwise the students of that campus only.
+    campus: Mapped[str] = mapped_column(String(160), default="", index=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[float] = mapped_column(Float, default=0.0)
+    updated_by: Mapped[str] = mapped_column(String, default="")
     updated_at: Mapped[float] = mapped_column(Float, default=0.0)
 
 

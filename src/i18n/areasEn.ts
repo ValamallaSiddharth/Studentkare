@@ -1,12 +1,16 @@
 // keep-sorted start
+import { accountContactsEn } from './areas/accountContacts';
 import { adminBoardEn } from './areas/adminBoard';
 import { adminEn } from './areas/admin';
 import { adminGovEn } from './areas/adminGov';
 import { assistEn } from './areas/assist';
+import { authChannelsEn } from './areas/authChannels';
+import { authPasscodeEn } from './areas/authPasscode';
 import { campusBoardsEn } from './areas/campusBoards';
 import { campusConsoleEn } from './areas/campusConsole';
 import { campusEn } from './areas/campus';
 import { campusSafetyEn } from './areas/campusSafety';
+import { careDirectoryEn } from './areas/careDirectory';
 import { careEn } from './areas/care';
 import { clinicianEn } from './areas/clinician';
 import { clinicianWorkEn } from './areas/clinicianWork';
@@ -16,6 +20,7 @@ import { identityEn } from './areas/identity';
 import { labbookEn } from './areas/labbook';
 import { landingEn } from './areas/landing';
 import { launchEn } from './areas/launch';
+import { m2remindersEn } from './areas/m2reminders';
 import { m2valuesEn } from './areas/m2values';
 import { memberEn } from './areas/member';
 import { mobile2En } from './areas/mobile2';
@@ -32,9 +37,13 @@ import { phonestoreEn } from './areas/phonestore';
 import { rewardsEn } from './areas/rewards';
 import { safetyEn } from './areas/safety';
 import { shopwebEn } from './areas/shopweb';
+import { stepsEn } from './areas/steps';
+import { studentInvitesEn } from './areas/studentInvites';
+import { studentPasswordEn } from './areas/studentPassword';
 import { studentshellEn } from './areas/studentshell';
 import { studentwebEn } from './areas/studentweb';
 import { studentwebT1En } from './areas/studentwebT1';
+import { teamAccountsEn } from './areas/teamAccounts';
 import { wellnessEn } from './areas/wellness';
 // keep-sorted end
 
@@ -46,14 +55,18 @@ import { wellnessEn } from './areas/wellness';
  */
 export const areasEn = {
   // keep-sorted start
+  ...accountContactsEn,
   ...adminBoardEn,
   ...adminEn,
   ...adminGovEn,
   ...assistEn,
+  ...authChannelsEn,
+  ...authPasscodeEn,
   ...campusBoardsEn,
   ...campusConsoleEn,
   ...campusEn,
   ...campusSafetyEn,
+  ...careDirectoryEn,
   ...careEn,
   ...clinicianEn,
   ...clinicianWorkEn,
@@ -63,6 +76,7 @@ export const areasEn = {
   ...labbookEn,
   ...landingEn,
   ...launchEn,
+  ...m2remindersEn,
   ...m2valuesEn,
   ...memberEn,
   ...mobile2En,
@@ -79,9 +93,13 @@ export const areasEn = {
   ...rewardsEn,
   ...safetyEn,
   ...shopwebEn,
+  ...stepsEn,
+  ...studentInvitesEn,
+  ...studentPasswordEn,
   ...studentshellEn,
   ...studentwebEn,
   ...studentwebT1En,
+  ...teamAccountsEn,
   ...wellnessEn,
   // keep-sorted end
 };

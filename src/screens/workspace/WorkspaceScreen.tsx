@@ -62,6 +62,7 @@ import { EncounterNotesPanel } from './EncounterNotesPanel';
 import { SuperAdminShell } from './admin/SuperAdminShell';
 import { superAdminScreen } from './admin/SuperAdminScreens';
 import { VendorShell } from '../vendor/VendorShell';
+import { TeamBadge } from '@/features/team-accounts/TeamBadge';
 import { canOpenPartnerRoute, partnerDisplayName, partnerKindOf } from '../vendor/partnerAccess';
 import { useEffectivePartnerKind } from '../vendor/partnerPreview';
 import type { AccountRole } from '../../data/types/workflowTypes';
@@ -76,7 +77,11 @@ import { AyushWidget, ayushWidgetShownOn } from '@/features/ayush/AyushWidget';
 
 const M2TrendsRoute = lazy(() => import('@/features/labResults/views/M2TrendsRoute').then(module => ({ default: module.M2TrendsRoute })));
 const M2ReportUploadRoute = lazy(() => import('@/features/labResults/views/M2ReportUploadRoute').then(module => ({ default: module.M2ReportUploadRoute })));
+const M2RemindersRoute = lazy(() => import('@/features/reminders/views/M2RemindersRoute').then(module => ({ default: module.M2RemindersRoute })));
+const M2WaterRoute = lazy(() => import('@/features/reminders/views/M2WaterRoute').then(module => ({ default: module.M2WaterRoute })));
+const M2StepsRoute = lazy(() => import('@/features/steps/views/M2StepsRoute').then(module => ({ default: module.M2StepsRoute })));
 const M2LabsRoute = lazy(() => import('@/features/m2store/views/M2LabsRoute').then(module => ({ default: module.M2LabsRoute })));
+const CareDirectoryRoute = lazy(() => import('@/features/careDirectory/views/CareDirectoryRoute').then(module => ({ default: module.CareDirectoryRoute })));
 const WebEmergencyCard = lazy(() => import('@/features/emergency/views/WebEmergencyCard').then(module => ({ default: module.WebEmergencyCard })));
 const IdentityVerifyView = lazy(() => import('@/features/auth/views/IdentityVerifyView').then(module => ({ default: module.IdentityVerifyView })));
 const WebPass = lazy(() => import('@/features/digital_id/views/WebPass').then(module => ({ default: module.WebPass })));
@@ -332,6 +337,8 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
       case 'delete-account': return <WebDeleteAccountRoute />;
       // Mobile 2.0 Lab tests: the student shell had no lab tests page (its nav item had no route).
       case 'lab-tests': return <M2LabsRoute />;
+      // Find care near you (WebFindCare above phone width): the same board, two columns.
+      case 'find-care': return <CareDirectoryRoute wide />;
       default: return null;
     }
   };
@@ -348,6 +355,10 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
       // Mobile 2.0 My health (Tier 1): the same boards in the page column above phone width.
       case 'health/trends': return <M2TrendsRoute />;
       case 'health/report-upload': return <M2ReportUploadRoute />;
+      case 'health/medicines': return <M2RemindersRoute />;
+      case 'health/water': return <M2WaterRoute />;
+      // Steps: the same board in the page column (a browser counts no steps; typed entry only).
+      case 'health/steps': return <M2StepsRoute />;
       case 'account': return <AccountDetailsPage />;
       case 'data-export': return <DataExportPage />;
       case 'billing': return <MemberProfilePanel initialTab="plan" />;
@@ -452,7 +463,7 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
       {/* Ayush, floating (AyushWidget): never over crisis, SOS, the emergency card, checkout or Ayush itself. */}
       {ayushWidgetShownOn(route) ? <AyushWidget /> : null}
       {/* The same helplines dialog the app bar opened, unchanged: 112, Tele-MANAS and the campus SOS. */}
-      {sosOpen && <EmergencyHelplinesDialog onClose={() => setSosOpen(false)} onSendSos={() => { setSosOpen(false); navigate('sos'); }} />}
+      {sosOpen && <EmergencyHelplinesDialog onClose={() => setSosOpen(false)} onSendSos={() => { setSosOpen(false); navigate('sos'); }} onFindCare={() => { setSosOpen(false); navigate('find-care'); }} />}
     </>;
   }
 
@@ -468,7 +479,7 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
   return <div className="wf-workspace">
     <header className="wf-mobile-workspace-header"><StudentKareLogo size={28} showStrapline={false} /><button ref={menuButton} className="wf-icon-button" aria-label={mobileMenu ? t('ws.closeNav') : t('ws.openNav')} aria-expanded={mobileMenu} aria-controls="workspace-sidebar" onClick={() => setMobileMenu(!mobileMenu)}>{mobileMenu ? <X size={23} /> : <Menu size={23} />}</button></header>
     {sidebar}
-    <main className="wf-workspace-main"><div className="wf-workspace-top"><div><span className="care-eyebrow">{roleLabel.toUpperCase()}</span><strong>{t('ws.greeting', { name: user.fullName.split(' ')[0] })}</strong><p>{user.university || t('ws.noCampus')}</p></div><div className="wf-row-actions" style={{ flexWrap: 'wrap', gap: 8 }}><div className="wf-top-profile-quicknav" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', padding: '4px 6px', borderRadius: 12, border: '1px solid var(--rule)' }}><button className={`health-button ${route === 'billing' ? 'health-button-primary' : ''}`} style={{ padding: '6px 12px', minHeight: 'var(--sk-size-touch-target, 44px)', fontSize: 'var(--sk-text-caption)', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 5 }} onClick={() => navigate('billing')} ><ShieldCheck size={14} aria-hidden="true" /> {t('nav.plan')}</button><button className={`health-button ${route === 'profile' ? 'health-button-primary' : ''}`} style={{ padding: '6px 12px', minHeight: 'var(--sk-size-touch-target, 44px)', fontSize: 'var(--sk-text-caption)', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 5 }} onClick={() => navigate('profile')} ><UserRound size={14} aria-hidden="true" /> {t('nav.profile')}</button><button className={`health-button ${route === 'digital-id' ? 'health-button-primary' : ''}`} style={{ padding: '6px 12px', minHeight: 'var(--sk-size-touch-target, 44px)', fontSize: 'var(--sk-text-caption)', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 5 }} onClick={() => navigate('digital-id')} ><IdCard size={14} aria-hidden="true" /> {t('nav.digitalId')}</button></div>{user.role === 'STUDENT' && <span className="wf-status">{user.isVerifiedStudent ? t('ws.verified') : t('ws.verifyPending')}</span>}<button className="health-button" onClick={() => navigate('shop')}>{t('ws.shop')} <Package size={15} aria-hidden="true" /></button></div></div>
+    <main className="wf-workspace-main"><div className="wf-workspace-top"><div><span className="care-eyebrow">{roleLabel.toUpperCase()}</span>{' '}<TeamBadge /><strong>{t('ws.greeting', { name: user.fullName.split(' ')[0] })}</strong><p>{user.university || t('ws.noCampus')}</p></div><div className="wf-row-actions" style={{ flexWrap: 'wrap', gap: 8 }}><div className="wf-top-profile-quicknav" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', padding: '4px 6px', borderRadius: 12, border: '1px solid var(--rule)' }}><button className={`health-button ${route === 'billing' ? 'health-button-primary' : ''}`} style={{ padding: '6px 12px', minHeight: 'var(--sk-size-touch-target, 44px)', fontSize: 'var(--sk-text-caption)', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 5 }} onClick={() => navigate('billing')} ><ShieldCheck size={14} aria-hidden="true" /> {t('nav.plan')}</button><button className={`health-button ${route === 'profile' ? 'health-button-primary' : ''}`} style={{ padding: '6px 12px', minHeight: 'var(--sk-size-touch-target, 44px)', fontSize: 'var(--sk-text-caption)', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 5 }} onClick={() => navigate('profile')} ><UserRound size={14} aria-hidden="true" /> {t('nav.profile')}</button><button className={`health-button ${route === 'digital-id' ? 'health-button-primary' : ''}`} style={{ padding: '6px 12px', minHeight: 'var(--sk-size-touch-target, 44px)', fontSize: 'var(--sk-text-caption)', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 5 }} onClick={() => navigate('digital-id')} ><IdCard size={14} aria-hidden="true" /> {t('nav.digitalId')}</button></div>{user.role === 'STUDENT' && <span className="wf-status">{user.isVerifiedStudent ? t('ws.verified') : t('ws.verifyPending')}</span>}<button className="health-button" onClick={() => navigate('shop')}>{t('ws.shop')} <Package size={15} aria-hidden="true" /></button></div></div>
       {staffHome && staffIntro && <ConsoleIntro title={t(staffIntro.title)} description={t(staffIntro.body)} eyebrow={roleLabel.toUpperCase()} />}
       <Suspense fallback={<ScreenLoading />}><PageTransition key={route}>{content()}</PageTransition></Suspense>
       <footer className="wf-workspace-footer">{t('ws.footer')}</footer>

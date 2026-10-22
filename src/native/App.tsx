@@ -9,7 +9,7 @@ import { NavigationProvider, useNavigate } from './navigation';
 import PreventiveCareScreen from './PreventiveCareScreen';
 import { CampScreen } from './CampScreen';
 import { RecordCaptureScreen } from './RecordCaptureScreen';
-import { MedicineRemindersScreen } from './MedicineRemindersScreen';
+import { RemindersScreen, WaterScreen } from './M2ReminderScreens';
 import { AppearanceScreen } from './AppearanceScreen';
 import { applyAppearanceAndRestart } from './applyAppearance';
 import {
@@ -50,6 +50,7 @@ import { DeleteAccountRoute } from '@/features/account/views/DeleteAccountView';
 import { RewardsRoute } from '@/features/rewards/views/RewardsView';
 import { MyRequestsRoute, NewRequestRoute } from '@/features/requests/views/RequestsViews';
 import { ReturnRequestBoardScreen, SearchScreen } from './PhoneBoardsScreens';
+import { FindCareScreen } from './CareDirectoryScreens';
 import {
   ConsultsScreen,
   InsuranceScreen,
@@ -63,6 +64,7 @@ import {
   ProductScreen,
   ProfileScreen,
   ReportUploadScreen,
+  StepsScreen,
   TrendsScreen,
   VaccinesScreen,
 } from './M2HealthScreens';
@@ -94,6 +96,7 @@ export type RootStackParamList = {
   DeleteAccount: undefined;
   DigitalId: undefined;
   Emergency: undefined;
+  FindCare: { segment?: 'hospitals' | 'pharmacies' | 'ambulance' | 'doctors'; placeId?: string } | undefined;
   Home: undefined;
   HostelVisit: undefined;
   Insights: undefined;
@@ -124,6 +127,7 @@ export type RootStackParamList = {
   Rewards: undefined;
   Search: undefined;
   SignIn: undefined;
+  Steps: undefined;
   Teleconsult: undefined;
   Trends: undefined;
   TwoFactorSetup: undefined;
@@ -131,6 +135,7 @@ export type RootStackParamList = {
   Vault: undefined;
   Verify: undefined;
   VerifyGate: undefined;
+  Water: undefined;
   Wellness: undefined;
   YourCare: undefined;
   // keep-sorted end
@@ -168,14 +173,6 @@ function CaptureRecordRoute() {
   );
 }
 
-function MedicineRemindersRoute() {
-  return (
-    <SafeAreaView edges={['left', 'right', 'bottom']} style={{ flex: 1 }}>
-      <MedicineRemindersScreen />
-    </SafeAreaView>
-  );
-}
-
 function EmergencyRoute() {
   const navigate = useNavigate();
   const navigation = useNavigation();
@@ -188,6 +185,7 @@ function EmergencyRoute() {
         signIn: signedIn ? undefined : () => navigate('SignIn'),
         home: signedIn ? () => navigate('Home') : undefined,
         back: () => navigation.goBack(),
+        nearestHospitals: () => navigate('FindCare', { segment: 'hospitals' }),
       }} />
     </BoardFrame>
   );
@@ -434,10 +432,13 @@ function RootNavigator() {
           <Stack.Screen name="Insights" component={InsightsScreen} options={{ title: t('m2.nav.health'), headerShown: false }} />
           <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: t('m2.nav.profile'), headerShown: false }} />
           <Stack.Screen name="Trends" component={TrendsScreen} options={{ title: t('m2v.tr.title'), headerShown: false }} />
+          <Stack.Screen name="Steps" component={StepsScreen} options={{ title: t('steps.title'), headerShown: false }} />
           <Stack.Screen name="ReportUpload" component={ReportUploadScreen} options={{ title: t('m2v.up.title'), headerShown: false }} />
           <Stack.Screen name="Vault" component={VaultRoute} options={{ title: t('nav.records') }} />
           <Stack.Screen name="CaptureRecord" component={CaptureRecordRoute} options={{ title: t('capture.title') }} />
-          <Stack.Screen name="MedicineReminders" component={MedicineRemindersRoute} options={{ title: t('reminders.title') }} />
+          {/* Mobile 2.0 Medicines today and reminders (M2Reminders) and Water (M2Water): each draws its own header. */}
+          <Stack.Screen name="MedicineReminders" component={RemindersScreen} options={{ title: t('m2r.meds.title'), headerShown: false }} />
+          <Stack.Screen name="Water" component={WaterScreen} options={{ title: t('m2r.water.title'), headerShown: false }} />
           <Stack.Screen name="YourCare" component={YourCareRoute} options={{ title: t('tabbar.yourCare'), headerShown: false }} />
           <Stack.Screen name="More" component={MoreRoute} options={{ title: t('ws.tab.more') }} />
           <Stack.Screen name="Appointments" component={AppointmentsRoute} options={{ title: t('nav.appointments'), headerShown: false }} />
@@ -487,6 +488,8 @@ function RootNavigator() {
         <Stack.Screen name="Marketplace" component={MarketplaceRoute} options={{ title: t('onboard.nav.marketplace') }} />
         <Stack.Screen name="PreventiveCare" component={PreventiveCareScreen} options={{ title: t('onboard.nav.vaccines') }} />
         <Stack.Screen name="Camp" component={CampRoute} options={{ title: t('onboard.nav.camp') }} />
+        {/* Find care near you: public, signed in or out (location stays on the phone). */}
+        <Stack.Screen name="FindCare" component={FindCareScreen} options={{ title: t('fc.eyebrow'), headerShown: false }} />
       </Stack.Group>
     </Stack.Navigator>
   );

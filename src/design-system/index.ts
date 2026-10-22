@@ -25,7 +25,7 @@ export type { SwitchRowProps } from './SwitchRow';
 export type { StepperProps } from './Stepper';
 export { EmptyState, ErrorState, OfflineBanner, Skeleton, StateScreen, useOnline } from './States';
 export type { EmptyStateProps, ErrorStateProps, OfflineBannerProps, SkeletonProps, StateAction, StateKind, StateScreenProps } from './States';
-export { CrisisLinks, EMERGENCY_NUMBER, TELE_MANAS_NUMBER } from './CrisisLinks';
+export { AMBULANCE_NUMBER, CrisisLinks, EMERGENCY_NUMBER, TELE_MANAS_NUMBER } from './CrisisLinks';
 export { Checkbox, Chip } from './Controls';
 export type { CheckboxProps, ChipProps } from './Controls';
 export { CodeInput, PhoneInput, Select } from './Inputs';
@@ -77,8 +77,8 @@ export {
   DestinationButton,
 } from './primitives';
 export type { SkTone } from './primitives';
-export { ConsoleBrand, ConsoleNav, ConsoleSidebarLink, ConsoleTopbar } from './console-shell/ConsoleShell';
-export type { ConsoleBrandProps, ConsoleNavGroup, ConsoleNavItem, ConsoleNavProps, ConsoleSearchProps, ConsoleSidebarLinkProps, ConsoleTopbarProps } from './console-shell/ConsoleShell';
+export { ConsoleBrand, ConsoleNav, ConsoleSidebarLink, ConsoleTopbar, TeamAccountBadge } from './console-shell/ConsoleShell';
+export type { ConsoleBrandProps, ConsoleNavGroup, ConsoleNavItem, ConsoleNavProps, ConsoleSearchProps, ConsoleSidebarLinkProps, ConsoleTopbarProps, TeamAccountBadgeProps } from './console-shell/ConsoleShell';
 export { ClinicianShell } from './clinician-shell/ClinicianShell';
 export type { ClinicianIdentity, ClinicianShellProps } from './clinician-shell/ClinicianShell';
 export type { ClinicianNavId } from './clinician-shell/clinicianNav';

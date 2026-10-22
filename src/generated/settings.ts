@@ -7,12 +7,24 @@ export interface PublicSettings {
   "appearance.boot_wait_ms": number;
   /** How long the code screen waits before offering to send a new sign-in code. (seconds) */
   "auth.otp_resend_seconds": number;
+  /** Whether students may set a passcode and sign in with it on a device they have used before. */
+  "auth.passcode_login_enabled": boolean;
+  /** Whether accounts that have a password may sign in with it. */
+  "auth.password_login_enabled": boolean;
+  /** The shortest password that can be set. (characters) */
+  "auth.password_min_length": number;
+  /** Whether team accounts may sign in on the staff page with their ID and PIN. */
+  "auth.staff_pin_login_enabled": boolean;
   /** Starting price of Premium, per month. Always shown as "from" this amount. (₹ per month (starting price)) */
   "billing.premium.from_monthly_inr": number;
   /** Price of the Student Plus membership, per month. (₹ per month) */
   "billing.student_plus.monthly_inr": number;
   /** Price of the Student Plus 3-month package, paid once. (₹ per 3 months) */
   "billing.student_plus.quarter_package_inr": number;
+  /** Oldest device location fix the app reuses to sort by distance. (seconds) */
+  "care_directory.location_max_age_seconds": number;
+  /** How long the app waits for the device location before saying so. (seconds) */
+  "care_directory.location_timeout_seconds": number;
   /** How long after the slot ends a video consult can still be joined. (minutes) */
   "consult.media_join_after_minutes": number;
   /** How early before the slot starts a video consult can be joined. (minutes) */
@@ -29,6 +41,14 @@ export interface PublicSettings {
   "lab_results.value_abs_max": number;
   /** How long after marking a dose taken or skipped the student can undo it. (minutes) */
   "meds.dose_undo_minutes": number;
+  /** Time of the 'afternoon' medicine reminder slot on the phone. (minutes after midnight) */
+  "meds.reminder_minute_afternoon": number;
+  /** Time of the 'evening' medicine reminder slot on the phone. (minutes after midnight) */
+  "meds.reminder_minute_evening": number;
+  /** Time of the 'morning' medicine reminder slot on the phone. (minutes after midnight) */
+  "meds.reminder_minute_morning": number;
+  /** Time of the 'night' medicine reminder slot on the phone. (minutes after midnight) */
+  "meds.reminder_minute_night": number;
   /** Most reminder times one medication plan may have in a day. (doses per day) */
   "meds.times_per_day_max": number;
   /** Hours a pharmacy's price quote stays payable. 0 means quotes do not expire. (hours) */
@@ -81,24 +101,46 @@ export interface PublicSettings {
   "wellness.activity_energy_kcal_max": number;
   /** Most floors climbed one day's manual entry may record. (floors) */
   "wellness.activity_floors_max": number;
-  /** Most steps one day's manual entry may record. (steps) */
+  /** Most steps one day's total may record, typed in or synced from the phone. (steps) */
   "wellness.activity_steps_max": number;
+  /** How far back a day's totals read on the phone (Apple Health, Health Connect, the phone's motion sensor) may be synced. (days) */
+  "wellness.activity_sync_backdate_days": number;
   /** How far back a water entry or a body measurement may be dated. (days) */
   "wellness.entry_backdate_days": number;
   /** Highest height the weight & BMI form accepts and BMI is computed from. (cm) */
   "wellness.height_cm_max": number;
   /** Lowest height the weight & BMI form accepts and BMI is computed from. (cm) */
   "wellness.height_cm_min": number;
+  /** While the Steps screen is open, how often the app re-reads today's total from a connected source and syncs it. (seconds) */
+  "wellness.steps_live_sync_seconds": number;
   /** Largest amount one water entry may record. (ml) */
   "wellness.water_entry_ml_max": number;
   /** Smallest amount one water entry may record. (ml) */
   "wellness.water_entry_ml_min": number;
+  /** How much one tap of '+ glass' logs on the Water card and screen. (ml) */
+  "wellness.water_glass_ml": number;
   /** Daily water goal for a student who has not set one. (ml) */
   "wellness.water_goal_ml_default": number;
   /** Highest daily water goal a student can set. (ml) */
   "wellness.water_goal_ml_max": number;
   /** Lowest daily water goal a student can set. (ml) */
   "wellness.water_goal_ml_min": number;
+  /** How many days, today included, the Water screen shows (GET /wellness/water/days). (days) */
+  "wellness.water_history_days": number;
+  /** No water reminder after this hour until the student picks another. (hour of day) */
+  "wellness.water_reminder_end_hour_default": number;
+  /** Gap between water reminders until the student picks another. (minutes) */
+  "wellness.water_reminder_interval_minutes_default": number;
+  /** Longest gap a student can pick between water reminders. (minutes) */
+  "wellness.water_reminder_interval_minutes_max": number;
+  /** Shortest gap a student can pick between water reminders. (minutes) */
+  "wellness.water_reminder_interval_minutes_min": number;
+  /** Step of the water reminder gap picker. (minutes) */
+  "wellness.water_reminder_interval_step_minutes": number;
+  /** First water reminder of the day until the student picks another hour. (hour of day) */
+  "wellness.water_reminder_start_hour_default": number;
+  /** Most water reminders the phone schedules in one day. (reminders) */
+  "wellness.water_reminders_per_day_max": number;
   /** Highest weight the weight & BMI form accepts and BMI is computed from. (kg) */
   "wellness.weight_kg_max": number;
   /** Lowest weight the weight & BMI form accepts and BMI is computed from. (kg) */
@@ -120,9 +162,15 @@ export interface PublicSettingSpec {
 export const publicSettingDefaults: Readonly<PublicSettings> = {
   "appearance.boot_wait_ms": 1500,
   "auth.otp_resend_seconds": 45,
+  "auth.passcode_login_enabled": true,
+  "auth.password_login_enabled": true,
+  "auth.password_min_length": 10,
+  "auth.staff_pin_login_enabled": true,
   "billing.premium.from_monthly_inr": 499,
   "billing.student_plus.monthly_inr": 149,
   "billing.student_plus.quarter_package_inr": 2199,
+  "care_directory.location_max_age_seconds": 120,
+  "care_directory.location_timeout_seconds": 15,
   "consult.media_join_after_minutes": 30,
   "consult.media_join_before_minutes": 15,
   "emergency.sos_poll_seconds": 15,
@@ -131,6 +179,10 @@ export const publicSettingDefaults: Readonly<PublicSettings> = {
   "lab_results.pinned_max": 8,
   "lab_results.value_abs_max": 10000000.0,
   "meds.dose_undo_minutes": 30,
+  "meds.reminder_minute_afternoon": 840,
+  "meds.reminder_minute_evening": 1200,
+  "meds.reminder_minute_morning": 480,
+  "meds.reminder_minute_night": 1320,
   "meds.times_per_day_max": 6,
   "pharmacy.quote_expiry_hours": 0,
   "privacy.deletion_grace_days": 7,
@@ -158,14 +210,25 @@ export const publicSettingDefaults: Readonly<PublicSettings> = {
   "wellness.activity_energy_kcal_max": 10000.0,
   "wellness.activity_floors_max": 500,
   "wellness.activity_steps_max": 100000,
+  "wellness.activity_sync_backdate_days": 7,
   "wellness.entry_backdate_days": 7,
   "wellness.height_cm_max": 250.0,
   "wellness.height_cm_min": 100.0,
+  "wellness.steps_live_sync_seconds": 60,
   "wellness.water_entry_ml_max": 2000,
   "wellness.water_entry_ml_min": 10,
+  "wellness.water_glass_ml": 250,
   "wellness.water_goal_ml_default": 2000,
   "wellness.water_goal_ml_max": 6000,
   "wellness.water_goal_ml_min": 500,
+  "wellness.water_history_days": 7,
+  "wellness.water_reminder_end_hour_default": 21,
+  "wellness.water_reminder_interval_minutes_default": 120,
+  "wellness.water_reminder_interval_minutes_max": 240,
+  "wellness.water_reminder_interval_minutes_min": 60,
+  "wellness.water_reminder_interval_step_minutes": 30,
+  "wellness.water_reminder_start_hour_default": 9,
+  "wellness.water_reminders_per_day_max": 12,
   "wellness.weight_kg_max": 350.0,
   "wellness.weight_kg_min": 20.0,
 };
@@ -173,9 +236,15 @@ export const publicSettingDefaults: Readonly<PublicSettings> = {
 export const publicSettingSpecs: Readonly<Record<PublicSettingKey, PublicSettingSpec>> = {
   "appearance.boot_wait_ms": { type: "int", min: 0, max: 10000, allowed: [], unit: "ms" },
   "auth.otp_resend_seconds": { type: "int", min: 10, max: 300, allowed: [], unit: "seconds" },
+  "auth.passcode_login_enabled": { type: "bool", min: null, max: null, allowed: [], unit: "" },
+  "auth.password_login_enabled": { type: "bool", min: null, max: null, allowed: [], unit: "" },
+  "auth.password_min_length": { type: "int", min: 8, max: 64, allowed: [], unit: "characters" },
+  "auth.staff_pin_login_enabled": { type: "bool", min: null, max: null, allowed: [], unit: "" },
   "billing.premium.from_monthly_inr": { type: "int", min: 1, max: 100000, allowed: [], unit: "\u20b9 per month (starting price)" },
   "billing.student_plus.monthly_inr": { type: "int", min: 1, max: 100000, allowed: [], unit: "\u20b9 per month" },
   "billing.student_plus.quarter_package_inr": { type: "int", min: 1, max: 1000000, allowed: [], unit: "\u20b9 per 3 months" },
+  "care_directory.location_max_age_seconds": { type: "int", min: 0, max: 900, allowed: [], unit: "seconds" },
+  "care_directory.location_timeout_seconds": { type: "int", min: 3, max: 60, allowed: [], unit: "seconds" },
   "consult.media_join_after_minutes": { type: "int", min: 0, max: 240, allowed: [], unit: "minutes" },
   "consult.media_join_before_minutes": { type: "int", min: 0, max: 120, allowed: [], unit: "minutes" },
   "emergency.sos_poll_seconds": { type: "int", min: 5, max: 120, allowed: [], unit: "seconds" },
@@ -184,6 +253,10 @@ export const publicSettingSpecs: Readonly<Record<PublicSettingKey, PublicSetting
   "lab_results.pinned_max": { type: "int", min: 1, max: 50, allowed: [], unit: "tests" },
   "lab_results.value_abs_max": { type: "float", min: 1, max: 1000000000, allowed: [], unit: "any unit" },
   "meds.dose_undo_minutes": { type: "int", min: 0, max: 240, allowed: [], unit: "minutes" },
+  "meds.reminder_minute_afternoon": { type: "int", min: 0, max: 1439, allowed: [], unit: "minutes after midnight" },
+  "meds.reminder_minute_evening": { type: "int", min: 0, max: 1439, allowed: [], unit: "minutes after midnight" },
+  "meds.reminder_minute_morning": { type: "int", min: 0, max: 1439, allowed: [], unit: "minutes after midnight" },
+  "meds.reminder_minute_night": { type: "int", min: 0, max: 1439, allowed: [], unit: "minutes after midnight" },
   "meds.times_per_day_max": { type: "int", min: 1, max: 24, allowed: [], unit: "doses per day" },
   "pharmacy.quote_expiry_hours": { type: "int", min: 0, max: 720, allowed: [], unit: "hours" },
   "privacy.deletion_grace_days": { type: "int", min: 1, max: 30, allowed: [], unit: "days" },
@@ -211,14 +284,25 @@ export const publicSettingSpecs: Readonly<Record<PublicSettingKey, PublicSetting
   "wellness.activity_energy_kcal_max": { type: "float", min: 100, max: 50000, allowed: [], unit: "kcal" },
   "wellness.activity_floors_max": { type: "int", min: 1, max: 5000, allowed: [], unit: "floors" },
   "wellness.activity_steps_max": { type: "int", min: 1000, max: 1000000, allowed: [], unit: "steps" },
+  "wellness.activity_sync_backdate_days": { type: "int", min: 0, max: 30, allowed: [], unit: "days" },
   "wellness.entry_backdate_days": { type: "int", min: 0, max: 366, allowed: [], unit: "days" },
   "wellness.height_cm_max": { type: "float", min: 150, max: 300, allowed: [], unit: "cm" },
   "wellness.height_cm_min": { type: "float", min: 30, max: 150, allowed: [], unit: "cm" },
+  "wellness.steps_live_sync_seconds": { type: "int", min: 15, max: 3600, allowed: [], unit: "seconds" },
   "wellness.water_entry_ml_max": { type: "int", min: 10, max: 5000, allowed: [], unit: "ml" },
   "wellness.water_entry_ml_min": { type: "int", min: 1, max: 1000, allowed: [], unit: "ml" },
+  "wellness.water_glass_ml": { type: "int", min: 10, max: 2000, allowed: [], unit: "ml" },
   "wellness.water_goal_ml_default": { type: "int", min: 100, max: 10000, allowed: [], unit: "ml" },
   "wellness.water_goal_ml_max": { type: "int", min: 100, max: 10000, allowed: [], unit: "ml" },
   "wellness.water_goal_ml_min": { type: "int", min: 100, max: 10000, allowed: [], unit: "ml" },
+  "wellness.water_history_days": { type: "int", min: 2, max: 31, allowed: [], unit: "days" },
+  "wellness.water_reminder_end_hour_default": { type: "int", min: 0, max: 23, allowed: [], unit: "hour of day" },
+  "wellness.water_reminder_interval_minutes_default": { type: "int", min: 15, max: 720, allowed: [], unit: "minutes" },
+  "wellness.water_reminder_interval_minutes_max": { type: "int", min: 15, max: 720, allowed: [], unit: "minutes" },
+  "wellness.water_reminder_interval_minutes_min": { type: "int", min: 15, max: 720, allowed: [], unit: "minutes" },
+  "wellness.water_reminder_interval_step_minutes": { type: "int", min: 5, max: 120, allowed: [], unit: "minutes" },
+  "wellness.water_reminder_start_hour_default": { type: "int", min: 0, max: 23, allowed: [], unit: "hour of day" },
+  "wellness.water_reminders_per_day_max": { type: "int", min: 1, max: 24, allowed: [], unit: "reminders" },
   "wellness.weight_kg_max": { type: "float", min: 100, max: 700, allowed: [], unit: "kg" },
   "wellness.weight_kg_min": { type: "float", min: 1, max: 100, allowed: [], unit: "kg" },
 };

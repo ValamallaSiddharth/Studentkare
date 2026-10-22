@@ -128,6 +128,11 @@ TABLE_PLANES: dict[str, str] = {
     # --- platform: operations, reference content, no person's health ---
     "alembic_version": PLATFORM,
     "care_rate_buckets": PLATFORM,
+    "care_staff_pin_credentials": PLATFORM,       # team-account PIN hashes and lockout counters; no grant to either role
+    "care_student_passcodes": PLATFORM,           # student passcode hashes and lockout counters; no grant to either role
+    "care_account_passwords": PLATFORM,           # password hashes and lockout counters; no grant to either role
+    "care_account_contacts": PLATFORM,            # each account's email and WhatsApp number, verified or not
+    "care_student_invites": PLATFORM,             # B2B invitations: link and temporary-password hashes only
     "care_workflow_audit": PLATFORM,
     "audit_logs": PLATFORM,
     "care_system_settings": PLATFORM,             # integration secrets
@@ -144,6 +149,7 @@ TABLE_PLANES: dict[str, str] = {
     "care_articles": PLATFORM,
     "care_reviewed_benefits": PLATFORM,
     "care_service_providers": PLATFORM,
+    "care_facilities": PLATFORM,                  # the care directory: places and phone numbers, no person
     "care_availability_slots": PLATFORM,
     "care_lab_test_reference": PLATFORM,          # test names and body-system groups; no person, no range
     "care_lab_collectors": PLATFORM,              # which staff account collects for which lab

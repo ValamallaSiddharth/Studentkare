@@ -26,7 +26,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 
-type Provider = 'platform' | 'posthog' | 'openwa' | 'postal' | 'slack' | 'firebase' | 'otp' | 'twofa' | 'llm';
+type Provider = 'platform' | 'posthog' | 'openwa' | 'postal' | 'slack' | 'firebase' | 'otp' | 'twofa' | 'llm' | 'abdm_hfr';
 
 /** One stored setting, as GET /admin/integrations returns it. */
 type ConfigValue = string | number | boolean | string[] | null;
@@ -42,6 +42,7 @@ const PROVIDER_META: Record<Provider, { title: MessageKey; desc: MessageKey; ico
   otp: { title: 'admin.int.otp.title', desc: 'admin.int.otp.desc', icon: KeyRound, category: 'admin.int.cat.security' },
   twofa: { title: 'admin.int.twofa.title', desc: 'admin.int.twofa.desc', icon: ShieldCheck, category: 'admin.int.cat.security' },
   llm: { title: 'admin.int.llm.title', desc: 'admin.int.llm.desc', icon: BrainCircuit, category: 'admin.int.cat.ai' },
+  abdm_hfr: { title: 'admin.int.abdm_hfr.title', desc: 'admin.int.abdm_hfr.desc', icon: Globe, category: 'admin.int.cat.registry' },
 };
 
 // Placeholders are example values, so they stay as they are in every language.
@@ -100,11 +101,25 @@ const FIELD_LABELS: Record<string, { label: MessageKey; description?: MessageKey
   // LLM
   provider: { label: 'admin.int.f.provider', description: 'admin.int.d.provider', placeholder: 'openai' },
   model: { label: 'admin.int.f.model', description: 'admin.int.d.model', placeholder: 'gpt-4o-mini / llama3.1:8b' },
+  // ABDM Health Facility Registry (care directory connector; nothing is fetched until a live search is built)
+  registry_url: { label: 'admin.int.f.registry_url', description: 'admin.int.d.registry_url' },
+  client_id: { label: 'admin.int.f.client_id', description: 'admin.int.d.client_id' },
+  client_secret: { label: 'admin.int.f.client_secret', description: 'admin.int.d.client_secret' },
 };
 
 function isSecretKey(k: string) {
   return /key|secret|token|password|service_account/i.test(k);
 }
+
+/** WhatsApp delivery as the server sees it (GET /admin/integrations `status.openwa`). */
+type WhatsAppState = 'connected' | 'not_connected' | 'not_configured';
+const WHATSAPP_STATE_COPY: Record<WhatsAppState, MessageKey> = {
+  connected: 'authch.admin.wa.connected',
+  not_connected: 'authch.admin.wa.notConnected',
+  not_configured: 'authch.admin.wa.notConfigured',
+};
+const isWhatsAppState = (value: unknown): value is WhatsAppState =>
+  value === 'connected' || value === 'not_connected' || value === 'not_configured';
 
 /** A setting as text, or '' when it isn't text. */
 const text = (value: ConfigValue | undefined): string => (typeof value === 'string' ? value : '');
@@ -118,6 +133,8 @@ export const IntegrationsSettingsModule: React.FC = () => {
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [msg, setMsg] = useState<Partial<Record<Provider, { ok: boolean; said: Said }>>>({});
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+  // Configured is not connected: the WhatsApp session can log out while every key is right.
+  const [whatsapp, setWhatsapp] = useState<WhatsAppState | null>(null);
   const [loadError, setLoadError] = useState<{ said: Said; forbidden: boolean } | null>(null);
 
   // Active modal for the selected provider
@@ -131,7 +148,9 @@ export const IntegrationsSettingsModule: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const res = await apiRequest<{ integrations: Record<string, ProviderConfig> }>('/admin/integrations');
+      const res = await apiRequest<{ integrations: Record<string, ProviderConfig>; status?: { openwa?: { state?: unknown } } }>('/admin/integrations');
+      const state = res.status?.openwa?.state;
+      setWhatsapp(isWhatsAppState(state) ? state : null);
       setForms(res.integrations);
       setSaved(res.integrations);
       setLoadError(null);
@@ -306,6 +325,8 @@ export const IntegrationsSettingsModule: React.FC = () => {
             summary = text(data.project_id) ? t('admin.int.project', { id: text(data.project_id) }) : t('admin.int.notConfigured');
           } else if (p === 'llm') {
             summary = t('admin.int.llmSummary', { provider: text(data.provider) || notSet, model: text(data.model) || notSet });
+          } else if (p === 'abdm_hfr') {
+            summary = text(data.registry_url) ? text(data.registry_url) : t('admin.int.notConfigured');
           }
 
           return (
@@ -386,6 +407,15 @@ export const IntegrationsSettingsModule: React.FC = () => {
                     <span style={{ fontWeight: 700, color: tokens.text }}>{t('admin.int.status')} </span>{summary}
                   </div>
                 )}
+                {p === 'openwa' && whatsapp ? (
+                  <div
+                    role="status"
+                    data-testid="whatsapp-connection"
+                    style={{ fontSize: 12, lineHeight: 1.45, fontWeight: 700, padding: '8px 12px', borderRadius: 8, marginBottom: 14, color: whatsapp === 'connected' ? tokens.positive : whatsapp === 'not_connected' ? tokens.attention : tokens.text2, backgroundColor: whatsapp === 'connected' ? tokens.positiveBg : whatsapp === 'not_connected' ? tokens.attentionBg : tokens.surface2 }}
+                  >
+                    {t('authch.admin.wa.label')}: {t(WHATSAPP_STATE_COPY[whatsapp])}
+                  </div>
+                ) : null}
               </div>
 
               {/* Action Button Row */}

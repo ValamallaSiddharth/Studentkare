@@ -26,6 +26,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from core import workflow_models as M
+from core.settings_registry import setting
 from services import (
     activity_telemetry,
     agent_ayush,
@@ -49,7 +50,7 @@ router = APIRouter(prefix="/api", tags=["Clinical fulfilment"])
 
 CRISIS_KINDS = {"CRISIS_SELF_HARM", "CRISIS_MEDICAL", "CRISIS_OVERDOSE", "ERROR_FAIL_CLOSED"}
 SCHEDULE_CLASSES = {"OTC", "H", "H1", "X"}
-PROVIDER_KINDS = {"PHARMACY", "LAB", "CLINIC"}
+PROVIDER_KINDS = {"PHARMACY", "LAB", "CLINIC", "WELLNESS"}
 # Schedule H1 dispensing must stay on a retained register; X is tighter still.
 REGISTER_CLASSES = {"H1", "X"}
 
@@ -297,8 +298,12 @@ class ProviderInput(StrictModel):
 @router.post("/ops/service-providers", status_code=201)
 def create_provider(body: ProviderInput, user=Depends(require_super_admin), db: Session = Depends(workflow_db)):
     """Onboard a pharmacy or lab. Licence details are recorded, never asserted as verified."""
-    if not db.get(M.Account, body.accountId):
+    owner = db.get(M.Account, body.accountId)
+    if not owner:
         raise HTTPException(404, "No such account to attach this provider to.")
+    if owner.is_team_account:
+        # A provider is listed to real students; a team account is never one (core/team_scope.py).
+        raise HTTPException(422, "A team account can't be listed as a provider.")
     row = M.ServiceProvider(
         id=new_id(), account_id=body.accountId, kind=body.kind, legal_name=body.legalName.strip(),
         licence_no=body.licenceNo.strip(), licence_expiry=body.licenceExpiry,
@@ -318,12 +323,15 @@ class ProviderUpdate(StrictModel):
     active: bool | None = None
     deliveryAvailable: bool | None = None
     pickupAvailable: bool | None = None
+    # A super admin has checked the listing (address, hours, coordinates) today; False clears it.
+    # Only a verified listing with a current licence reaches the care directory (services/care_directory.py).
+    verified: bool | None = None
 
 
 @router.patch("/ops/service-providers/{provider_id}")
 def update_provider(provider_id: str, body: ProviderUpdate, user=Depends(require_super_admin),
                     db: Session = Depends(workflow_db)):
-    """Record how a provider hands medicines over, or take it off the directory."""
+    """Record how a provider hands medicines over, mark its listing verified, or take it off the directory."""
     row = db.get(M.ServiceProvider, provider_id)
     if not row:
         raise HTTPException(404, "No such provider.")
@@ -333,6 +341,8 @@ def update_provider(provider_id: str, body: ProviderUpdate, user=Depends(require
         row.delivery_available = body.deliveryAvailable
     if body.pickupAvailable is not None:
         row.pickup_available = body.pickupAvailable
+    if body.verified is not None:
+        row.verified_at = time.time() if body.verified else 0.0
     row.updated_at = time.time()
     audit(db, user["id"], "SERVICE_PROVIDER_UPDATED", row.id)
     db.commit()
@@ -2059,7 +2069,8 @@ def assign_lab_reviewer(order_id: str, body: ReviewerAssignment, user=Depends(re
     if not row or row.status != "REPORT_READY":
         raise HTTPException(404, "No report is waiting for review under that id.")
     doctor = db.get(M.Account, body.doctorId)
-    if not doctor or doctor.role != "NMC_DOCTOR" or not doctor.active:
+    # A team account never reviews a real student's report (core/team_scope.py).
+    if not doctor or doctor.role != "NMC_DOCTOR" or not doctor.active or doctor.is_team_account:
         raise HTTPException(422, "Assign an active doctor account.")
     row.reviewer_id = doctor.id
     row.updated_at = time.time()

@@ -18,7 +18,15 @@ from sqlalchemy.orm import Session as DBSession
 
 from core import workflow_models as M
 from core.app_env import is_dev_or_test, is_production, is_testing
+from core.settings_registry import setting
+from core.team_scope import RESERVED_CAMPUS_MESSAGE, is_reserved_campus
 from services import clinical_profile, twofa_store
+from services.contact_store import (
+    account_for_sign_in,
+    account_holding,
+    save_contact,
+    verified_contact,
+)
 from services.db_sql import SessionLocal
 from services.demo_seed import is_demo_identifier
 from services.email_deliverability import check_email_deliverable
@@ -131,6 +139,9 @@ def account_payload(account: M.Account) -> dict:
     profile = account.profile or {}
     return {"id": account.id, "fullName": account.full_name, "role": account.role,
             "partnerKind": partner_kind_of(account),
+            # A shared team account (services/team_accounts.py): the consoles show a
+            # "Team account" badge, and core/team_scope.team_sandboxed reads it.
+            "isTeamAccount": account.is_team_account is True,
             "email": account.identifier if account.channel == "EMAIL" else "",
             "phone": account.identifier if account.channel == "WHATSAPP" else "",
             "dob": profile.get("dob", ""), "university": profile.get("university", ""),
@@ -187,6 +198,8 @@ def session_payload(db: DBSession, account: M.Account) -> dict:
     It is not in account_payload: that is the identity every handler receives.
     """
     return {**account_payload(account), "bloodGroup": clinical_profile.blood_group(db, account.id),
+            # Both verified contacts, not only the sign-in ID (services/contact_store.py).
+            "email": verified_contact(db, account, "EMAIL"), "phone": verified_contact(db, account, "WHATSAPP"),
             "twoFactorSetupRequired": two_factor_setup_required(db, account)}
 
 
@@ -273,12 +286,15 @@ def require_clinician(user: dict = Depends(authenticated_user)) -> dict:
     return user
 
 
-def issue_session(db: DBSession, account: M.Account, response: Response, request: Request):
+def issue_session(db: DBSession, account: M.Account, response: Response, request: Request, *,
+                  code_verified_at: float = 0.0):
+    """A new session cookie. ``code_verified_at``: when this sign-in was proven with a one-time code (0 if not)."""
     old = request.cookies.get(SESSION_COOKIE)
     if old:
         db.execute(delete(M.Session).where(M.Session.token_hash == digest(old)))
     raw, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
-    db.add(M.Session(token_hash=digest(raw), account_id=account.id, csrf_token=csrf, expires_at=time.time() + SESSION_SECONDS))
+    db.add(M.Session(token_hash=digest(raw), account_id=account.id, csrf_token=csrf, expires_at=time.time() + SESSION_SECONDS,
+                     code_verified_at=code_verified_at))
     set_cookie(response, SESSION_COOKIE, raw, SESSION_SECONDS)
     return csrf
 
@@ -305,7 +321,7 @@ def deliver_code(identifier: str, code: str, channel: str) -> bool:
     # The identifier is a phone number or email: never written to logs (guardrail 9).
     print(f"[OTP] dispatch failed via {channel}: {reason}", flush=True)
     if dev_console_delivery_enabled():
-        print(f"[DEV OTP] verification code for {identifier} via {channel}: {code}", flush=True)
+        print(f"[DEV OTP] verification code for {mask_identifier(identifier, channel)} via {channel}: {code}", flush=True)
         return True
     return False
 
@@ -397,9 +413,20 @@ class Signup(StrictModel):
     def check_age(cls, value):
         return adult_birth_date(value)
 
+    @field_validator("university")
+    @classmethod
+    def not_the_team_campus(cls, value: str) -> str:
+        # The team test campus holds no real student (core/team_scope.py).
+        if is_reserved_campus(value):
+            raise ValueError(RESERVED_CAMPUS_MESSAGE)
+        return value
+
     # Required: no consent, no account (fail closed). Validated before the
     # signup grant is spent, so a refusal doesn't burn the verification.
     consent: SignupConsent
+    # Required (plan tier1-auth-password-2026-10-22, D-3). Checked for strength
+    # before the grant is spent, like consent. Never logged or sent back.
+    password: str = Field(min_length=1, max_length=128)
 
 
 @router.get("/consent")
@@ -409,10 +436,23 @@ def signup_consent_terms():
 
 
 @router.get("/options")
-def auth_options():
-    return {"channels": available_channels()}
+def auth_options(db: DBSession = Depends(workflow_db)):
+    """The channels a code can be sent on right now. WhatsApp only while its session is connected."""
+    return {"channels": available_channels(db)}
 
 
+CHANNEL_UNAVAILABLE = "CHANNEL_UNAVAILABLE"
+CHANNEL_UNAVAILABLE_MESSAGE = "We couldn't send your code that way just now. Try another way, or try again in a few minutes."
+
+
+def channel_unavailable(channel: str, db: DBSession) -> HTTPException:
+    """503 the screens can act on: which channel failed and what still works (never the identifier)."""
+    remaining = [c for c in available_channels(db) if c != channel]
+    return HTTPException(503, {"code": CHANNEL_UNAVAILABLE, "channel": channel, "channels": remaining,
+                               "message": CHANNEL_UNAVAILABLE_MESSAGE})
+
+
+SECOND_CONTACT_REQUIRED = "SECOND_CONTACT_REQUIRED"
 STAFF_NOT_FOUND = "No staff account uses this email. Staff accounts are created by an administrator."
 
 
@@ -423,12 +463,8 @@ def send_otp(body: OtpSend, request: Request, response: Response, db: DBSession 
     if body.audience == "STAFF" and (body.intent != "LOGIN" or body.channel != "EMAIL"):
         raise HTTPException(422, "Staff sign in with a work email.")
     if body.intent == "LOGIN":
-        account = db.scalar(
-            select(M.Account).where(
-                M.Account.identifier == identifier,
-                M.Account.active.is_(True)
-            )
-        )
+        # Only a verified contact gets a sign-in code (services/contact_store.py).
+        account = account_for_sign_in(db, identifier, body.channel)
         if body.audience == "STAFF" and (not account or account.role == "STUDENT"):
             # One answer for "no account" and "a student account": the staff page
             # never tells anyone which emails belong to students.
@@ -459,7 +495,7 @@ def send_otp(body: OtpSend, request: Request, response: Response, db: DBSession 
         # already-verified recovery contact stored on the account. Never to a
         # client-supplied email that we cannot prove belongs to this account.
         fallback = None
-        account = db.scalar(select(M.Account).where(M.Account.identifier == identifier))
+        account = account_for_sign_in(db, identifier, body.channel)
         if account:
             fallback = (account.profile or {}).get("recovery_email", "").strip() or None
         if fallback and "@" in fallback:
@@ -469,7 +505,7 @@ def send_otp(body: OtpSend, request: Request, response: Response, db: DBSession 
                 fallback_sent, fallback_channel = True, "EMAIL"
                 fallback_masked = mask_email(fallback)
     if not delivered:
-        raise HTTPException(503, "Verification delivery is unavailable. Please contact the administrator or try another configured channel.")
+        raise channel_unavailable(body.channel, db)
     old = request.cookies.get(CHALLENGE_COOKIE)
     if old:
         db.execute(delete(M.OtpChallenge).where(M.OtpChallenge.token_hash == digest(old)))
@@ -515,18 +551,23 @@ def verify_otp(body: OtpVerify, request: Request, response: Response, db: DBSess
         raise HTTPException(401, "This code has already been used.")
     db.commit()
     response.delete_cookie(CHALLENGE_COOKIE, path="/api")
-    account = db.scalar(select(M.Account).where(M.Account.identifier == challenge.identifier))
+    if challenge.intent not in ("LOGIN", "SIGNUP"):
+        # A contact-verification code (services/account_contacts.py) is never a sign-in or a sign-up.
+        raise HTTPException(401, "Invalid or expired verification code. Request a new code if needed.")
     if challenge.intent == "LOGIN":
+        account = account_for_sign_in(db, challenge.identifier, challenge.channel)
         if not account or not account.active:
             raise HTTPException(404, "No active account was found. Create an account to continue.")
         if twofa_store.is_enabled(db, account.id):
-            temp = twofa_store.create_pending(db, account.id)
+            temp = twofa_store.create_pending(db, account.id, first_factor="CODE")
             db.commit()
             return {"success": True, "requires2FA": True, "tempToken": temp, "user": None}
-        csrf = issue_session(db, account, response, request)
+        csrf = issue_session(db, account, response, request, code_verified_at=time.time())
+        remember_device(db, account, request, response)
         db.commit()
         return {"success": True, "user": session_payload(db, account), "csrfToken": csrf, "requiresSignup": False}
-    if account:
+    if account_holding(db, challenge.identifier) is not None:
+        # Any account using this address, verified or not: never a second account on it.
         raise HTTPException(409, "An account already exists. Please sign in.")
     grant, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
     db.add(M.SignupGrant(token_hash=digest(grant), identifier=challenge.identifier, channel=challenge.channel,
@@ -544,6 +585,21 @@ def signup(body: Signup, request: Request, response: Response, db: DBSession = D
         raise HTTPException(401, "Verify your contact details before completing registration.")
     if not hmac.compare_digest(request.headers.get("x-csrf-token", ""), grant.csrf_token):
         raise HTTPException(403, "Refresh the signup flow and verify your contact details again.")
+    # Both refusals below come before the grant is spent, so the student can fix them and go on.
+    from services.account_password import PasswordRefused, refusal, store_new_password
+    from services.account_password import check_password as check_new_password
+    min_length = setting("auth.password_min_length", db)
+    draft = M.Account(id="", identifier=grant.identifier, channel=grant.channel, full_name=body.fullName,
+                      profile={"dob": body.dob.isoformat()})
+    try:
+        check_new_password(body.password, min_length, draft)
+    except PasswordRefused as error:
+        raise refusal(error, min_length) from error
+    other = "WHATSAPP" if grant.channel == "EMAIL" else "EMAIL"
+    if other in available_channels(db) and not grant.second_verified_at:
+        # D-2: both contacts are verified at sign-up, whenever the other channel can deliver a code.
+        raise HTTPException(422, {"code": SECOND_CONTACT_REQUIRED, "channel": other,
+                                  "message": "Verify your other contact with a code before creating your account."})
     if not db.execute(update(M.SignupGrant).where(M.SignupGrant.token_hash == grant.token_hash, M.SignupGrant.consumed.is_(False)).values(consumed=True)).rowcount:
         db.rollback()
         raise HTTPException(409, "This registration verification has already been used.")
@@ -552,6 +608,11 @@ def signup(body: Signup, request: Request, response: Response, db: DBSession = D
     try:
         db.add(account)
         db.flush()
+        # The contact it signed up with was just proven by the code, and so was the other one if given.
+        save_contact(db, account.id, grant.channel, grant.identifier, verified=True)
+        if grant.second_verified_at and grant.second_identifier:
+            save_contact(db, account.id, grant.second_channel, grant.second_identifier, verified=True)
+        store_new_password(db, account, body.password)
         # Blood group is clinical: it goes to care_clinical_profiles, never the identity row.
         if body.bloodGroup:
             clinical_profile.write(db, account.id, {"bloodGroup": body.bloodGroup})
@@ -562,7 +623,8 @@ def signup(body: Signup, request: Request, response: Response, db: DBSession = D
         if body.referralCode:
             from services.rewards import attach_referral
             referral_applied = attach_referral(db, account, body.referralCode)
-        csrf = issue_session(db, account, response, request)
+        csrf = issue_session(db, account, response, request, code_verified_at=time.time())
+        remember_device(db, account, request, response)
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -618,7 +680,8 @@ def refresh_session(request: Request, response: Response, db: DBSession = Depend
     if not account or not session:
         raise HTTPException(401, "Invalid or expired session. Please sign in again.")
 
-    csrf = issue_session(db, account, response, request)
+    # A refresh keeps how the sign-in was proven; it never makes a passcode sign-in code-proven.
+    csrf = issue_session(db, account, response, request, code_verified_at=session.code_verified_at or 0.0)
     db.commit()
     return {
         "success": True,
@@ -637,6 +700,11 @@ def revoke_other_sessions(request: Request, user=Depends(authenticated_user), db
     """
     current = digest(request.cookies.get(SESSION_COOKIE, ""))
     revoked = db.execute(delete(M.Session).where(M.Session.account_id == user["id"], M.Session.token_hash != current)).rowcount
+    # Every other device forgets the account too, so a passcode stops working there
+    # (it needs a device that has signed in before) and no "Continue as" is offered.
+    this_device = digest(request.cookies.get(REMEMBER_COOKIE, ""))
+    db.execute(delete(M.RememberedDevice).where(M.RememberedDevice.account_id == user["id"],
+                                                M.RememberedDevice.token_hash != this_device))
     account = db.scalar(select(M.Account).where(M.Account.id == user["id"]).with_for_update().execution_options(populate_existing=True))
     pass_cancelled = False
     if account is not None:
@@ -670,6 +738,31 @@ def remembered_account(request: Request, db: DBSession):
     if not account or not account.active:
         return None, None
     return device, account
+
+
+def remember_device(db: DBSession, account: M.Account, request: Request, response: Response) -> None:
+    """After a student signs in, this device remembers the account (founder decision 2026-10-22).
+
+    The browser or phone keeps only an opaque HttpOnly token; the identifier is
+    never written where page scripts can read it (guardrail 9). The screen shows it
+    masked. Another account signing in on the device replaces it (a fresh token);
+    staff accounts are not remembered. "Forget this device" and a sign-out without
+    "remember me" clear it.
+    """
+    if account.role != "STUDENT":
+        return
+    now = time.time()
+    raw = request.cookies.get(REMEMBER_COOKIE, "")
+    row = db.get(M.RememberedDevice, digest(raw)) if raw else None
+    if row is not None and row.account_id == account.id and row.expires_at > now:
+        row.expires_at = now + REMEMBER_SECONDS
+    else:
+        if row is not None:
+            db.delete(row)
+        raw = secrets.token_urlsafe(32)
+        db.add(M.RememberedDevice(token_hash=digest(raw), account_id=account.id, last_route="",
+                                  expires_at=now + REMEMBER_SECONDS))
+    set_cookie(response, REMEMBER_COOKIE, raw, REMEMBER_SECONDS)
 
 
 def forget_device(request: Request, response: Response, db: DBSession):
@@ -710,8 +803,11 @@ def remembered(request: Request, response: Response, db: DBSession = Depends(wor
             forget_device(request, response, db)
             db.commit()
         return {"remembered": False}
+    from services.student_passcode import passcode_offered
     return {"remembered": True, "targetMasked": mask_identifier(account.identifier, account.channel),
-            "channel": account.channel, "lastRoute": device.last_route}
+            "channel": account.channel, "lastRoute": device.last_route,
+            # Only to the device that already holds this account: whether "Use my passcode" applies.
+            "passcode": passcode_offered(db, account)}
 
 
 @router.post("/remembered/send")

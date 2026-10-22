@@ -9,7 +9,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from test_workflow_api import (  # noqa: F401  (shared isolated-database fixture)
     SIGNUP_CONSENT,
+    SIGNUP_PASSWORD,
     harness,
+    verify_second_contact,
 )
 
 from app.main import app
@@ -102,7 +104,10 @@ def test_console_delivery_opt_in_and_production_refusal(plain_harness, monkeypat
     monkeypatch.setenv("DEV_OTP_CONSOLE", "true")
     monkeypatch.setenv("APP_ENV", "development")
     assert client.post("/api/auth/otp/send", json=body).status_code == 200
-    assert "[DEV OTP] verification code for console@example.test" in capsys.readouterr().out
+    logged = capsys.readouterr().out
+    # The code is printed; the address is masked (guardrail 9: no identifiers in logs).
+    assert "[DEV OTP] verification code for c•••@example.test" in logged
+    assert "console@example.test" not in logged
     monkeypatch.setenv("APP_ENV", "production")
     assert client.post("/api/auth/otp/send", json=body).status_code == 503
 
@@ -121,9 +126,10 @@ def test_seeded_catalog_order_and_vendor_fulfilment(harness):
 
     client.post("/api/auth/otp/send", json={"identifier": "buyer@example.test", "channel": "EMAIL", "intent": "SIGNUP"})
     csrf = client.post("/api/auth/otp/verify", json={"otp": codes[-1] if codes else "123456"}).json()["csrfToken"]
+    verify_second_contact(client, codes, {"X-CSRF-Token": csrf})
     client.post("/api/auth/signup", headers={"X-CSRF-Token": csrf},
                 json={"fullName": "Buyer", "dob": "2000-01-01", "university": "Test", "rollNumber": "B1",
-                      "consent": SIGNUP_CONSENT})
+                      "consent": SIGNUP_CONSENT, "password": SIGNUP_PASSWORD})
     buyer_headers = {"X-CSRF-Token": client.get("/api/auth/session").json()["csrfToken"]}
     order = client.post("/api/orders", headers={**buyer_headers, "Idempotency-Key": "seeded-order-1"},
                         json={"items": [{"id": "demo-vitamin-c", "quantity": 1}],

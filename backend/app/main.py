@@ -62,11 +62,14 @@ from core.telemetry import (
     update_db_pool_metrics,
     update_job_metrics,
 )
+from services.account_contacts import router as account_contacts_router
+from services.account_password import router as account_password_router
 from services.activity_telemetry import ActivityTelemetryMiddleware
 from services.alerts import router as alerts_router
 from services.apilayer import router as apilayer_router
 from services.billing import router as billing_router
 from services.campus_departure import router as campus_departure_router
+from services.care_directory import router as care_directory_router
 from services.clinical_api import router as clinical_router
 from services.db_sql import SessionLocal, create_all_tables, is_persistent
 from services.emergency_api import router as emergency_router
@@ -76,12 +79,16 @@ from services.lab_booking import router as lab_booking_router
 from services.lab_results import router as lab_results_router
 from services.medicine_master import router as medicine_master_router
 from services.member_profile_api import router as member_profile_router
-from services.otp_delivery import available_channels
+from services.otp_delivery import available_channels, whatsapp_status
 from services.preventive_care import router as preventive_router
 from services.rewards_api import router as rewards_router
 from services.rx_uploads import router as rx_uploads_router
 from services.settings_api import router as settings_router
+from services.signup_contacts import router as signup_contacts_router
+from services.student_invites import router as student_invites_router
+from services.student_passcode import router as student_passcode_router
 from services.student_requests import router as student_requests_router
+from services.team_accounts import router as team_accounts_router
 from services.wellness_api import router as wellness_router
 from services.workflow_api import router as workflow_router
 from services.workflow_auth import require_super_admin, workflow_db
@@ -297,7 +304,9 @@ async def unhandled_error(request, exc):
 def health(db=Depends(workflow_db)):
     db.execute(text("SELECT 1"))
     return {"status": "healthy", "persistent": is_persistent(), "integrations": {
-        "otpChannels": available_channels(), "payments": False, "insurer": False,
+        # "not_connected": OpenWA is configured but its WhatsApp session can't deliver (ops must re-link it).
+        "otpChannels": available_channels(db), "whatsapp": whatsapp_status(db)["state"],
+        "payments": False, "insurer": False,
         "deviceSync": False, "prescriptionReview": False,
     }}
 
@@ -328,6 +337,7 @@ app.include_router(integrations_router)
 app.include_router(billing_router)
 app.include_router(campus_departure_router)
 app.include_router(emergency_router)
+app.include_router(care_directory_router)
 app.include_router(erasure_router)
 app.include_router(student_requests_router)
 app.include_router(clinical_router)
@@ -338,4 +348,10 @@ app.include_router(lab_results_router)
 app.include_router(alerts_router)
 app.include_router(rewards_router)
 app.include_router(settings_router)
+app.include_router(team_accounts_router)
+app.include_router(student_passcode_router)
+app.include_router(account_password_router)
+app.include_router(account_contacts_router)
+app.include_router(signup_contacts_router)
+app.include_router(student_invites_router)
 app.include_router(apilayer_router, dependencies=[Depends(require_super_admin)])

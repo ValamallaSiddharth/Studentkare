@@ -26,6 +26,12 @@ export const authModule: FeatureModule = {
       load: () => import('./screens/AccountReadyScreen').then((m) => ({ default: m.AccountReadyScreen })),
     },
     {
+      // The student's optional passcode: after sign-up, from Sign-in & security, and after "forgot passcode".
+      path: '/set-passcode',
+      access: (role) => role === 'STUDENT',
+      load: () => import('./screens/SetPasscodeScreen').then((m) => ({ default: m.SetPasscodeScreen })),
+    },
+    {
       path: '/profile-setup',
       load: () => import('./screens/ProfileSetupScreen').then((m) => ({ default: m.ProfileSetupScreen })),
     },
@@ -56,6 +62,12 @@ export const authModule: FeatureModule = {
       path: '/staff-sign-in',
       public: true,
       load: () => import('./views/AdminSignInView').then((m) => ({ default: m.AdminSignInScreen })),
+    },
+    {
+      // A partner college's invite (B2B, plan tier1-auth-password-2026-10-22 b): the link is /claim#token=….
+      path: '/claim',
+      public: true,
+      load: () => import('./screens/ClaimInviteScreen').then((m) => ({ default: m.ClaimInviteScreen })),
     },
     {
       path: '/verify-gate',

@@ -38,18 +38,30 @@
       "src/features/auth/screens/AuthenticatedFlowScreen.tsx",
       "src/features/auth/views/SignInView.tsx",
       "src/features/auth/views/SignInFrame.tsx",
-      "src/features/auth/views/SignInNativeView.tsx"
+      "src/features/auth/views/SignInNativeView.tsx",
+      "src/features/auth/views/ChannelChoice.tsx",
+      "src/features/auth/views/AuthNativeParts.tsx",
+      "src/features/auth/views/AuthHeroSlides.tsx",
+      "src/features/auth/views/PasscodeSignInView.tsx",
+      "src/features/auth/views/PasscodeNativeParts.tsx",
+      "src/features/auth/views/StudentPasswordViews.tsx"
     ],
     "OtpVerify": [
       "src/features/auth/views/OtpVerifyView.tsx",
       "src/features/auth/views/otpCopy.ts",
       "src/features/auth/screens/AuthenticatedFlowScreen.tsx",
-      "src/features/auth/views/SignInFrame.tsx"
+      "src/features/auth/views/SignInFrame.tsx",
+      "src/features/auth/views/ChannelChoice.tsx"
     ],
     "CreateAccount": [
       "src/features/auth/views/CreateAccountView.tsx",
       "src/features/auth/views/CreateAccountNativeView.tsx",
-      "src/features/auth/views/channelCopy.ts"
+      "src/features/auth/views/channelCopy.ts",
+      "src/features/auth/views/ChannelChoice.tsx",
+      "src/features/auth/views/AuthNativeParts.tsx",
+      "src/features/auth/views/SignInFrame.tsx",
+      "src/features/auth/views/AuthHeroSlides.tsx",
+      "src/features/auth/views/StudentPasswordViews.tsx"
     ],
     "CampusVerify": [
       "src/features/auth/views/CampusVerifyView.tsx",
@@ -490,7 +502,11 @@
     "WebSignIn": [
       "src/features/auth/screens/AuthenticatedFlowScreen.tsx",
       "src/features/auth/views/SignInView.tsx",
-      "src/features/auth/views/SignInFrame.tsx"
+      "src/features/auth/views/SignInFrame.tsx",
+      "src/features/auth/views/ChannelChoice.tsx",
+      "src/features/auth/views/AuthHeroSlides.tsx",
+      "src/features/auth/views/PasscodeSignInView.tsx",
+      "src/features/auth/views/StudentPasswordViews.tsx"
     ],
     "WebLoggedOut": [
       "src/features/auth/views/LoggedOutView.tsx"
@@ -694,6 +710,8 @@
     "WebSecurity": [
       "src/features/account/views/SignInSecurityView.tsx",
       "src/features/account/viewmodel/TwoFactorViewModel.ts",
+      "src/features/account/viewmodel/ContactsViewModel.ts",
+      "src/features/account/viewmodel/PasswordCardViewModel.ts",
       "src/design-system/student-shell/StudentWebShell.tsx",
       "src/design-system/student-shell/studentNav.ts",
       "src/design-system/overlays/ConfirmDialog.tsx"
@@ -773,7 +791,9 @@
       "src/features/campus/console/campusPages.tsx",
       "src/features/campus/boards/CampusRosterScreen.tsx",
       "src/features/campus/boards/rosterImport.ts",
-      "src/features/campus/boards/boardKit.tsx"
+      "src/features/campus/boards/boardKit.tsx",
+      "src/features/campus/invites/StudentInvitesPanel.tsx",
+      "src/features/campus/invites/StudentInvitesViewModel.ts"
     ],
     "CampusInsights": [
       "src/design-system/campus-shell/CampusShell.tsx",
@@ -1779,7 +1799,50 @@
       "src/screens/workspace/StudentPhoneFrame.tsx",
       "src/native/StudentTabBar.tsx",
       "src/features/phoneKit/studentPhoneBoards.tsx",
-      "src/native/M2HealthScreens.tsx"
+      "src/native/M2HealthScreens.tsx",
+      "src/features/steps/views/StepsCard.tsx",
+      "src/features/steps/data/stepsApi.ts",
+      "src/design-system/m2/GradientHeroCard.tsx",
+      "src/features/reminders/views/TodayCards.tsx",
+      "src/features/reminders/views/ReminderParts.tsx",
+      "src/features/reminders/views/useUndoClock.ts",
+      "src/features/reminders/viewmodel/MedsTodayViewModel.ts",
+      "src/features/reminders/viewmodel/WaterViewModel.ts"
+    ],
+    "M2Reminders": [
+      "src/features/reminders/views/M2RemindersView.tsx",
+      "src/features/reminders/views/M2RemindersRoute.tsx",
+      "src/features/reminders/views/ReminderParts.tsx",
+      "src/features/reminders/views/useUndoClock.ts",
+      "src/features/reminders/viewmodel/MedsTodayViewModel.ts",
+      "src/features/reminders/viewmodel/MedicineRemindersViewModel.ts",
+      "src/features/reminders/viewmodel/serverMessage.ts",
+      "src/native/hardware/notifications.ts",
+      "src/design-system/m2/PillNav.tsx",
+      "src/design-system/m2/M2Parts.tsx",
+      "src/design-system/m2/Gradient.tsx",
+      "src/design-system/m2/servicePalette.ts",
+      "src/screens/workspace/StudentPhoneFrame.tsx",
+      "src/native/StudentTabBar.tsx",
+      "src/features/phoneKit/studentPhoneBoards.tsx",
+      "src/native/M2ReminderScreens.tsx"
+    ],
+    "M2Water": [
+      "src/features/reminders/views/M2WaterView.tsx",
+      "src/features/reminders/views/M2WaterRoute.tsx",
+      "src/features/reminders/views/ReminderParts.tsx",
+      "src/features/reminders/viewmodel/WaterViewModel.ts",
+      "src/features/reminders/viewmodel/WaterRemindersViewModel.ts",
+      "src/features/reminders/viewmodel/serverMessage.ts",
+      "src/native/hardware/notifications.ts",
+      "src/design-system/m2/PillNav.tsx",
+      "src/design-system/m2/M2Parts.tsx",
+      "src/design-system/m2/Gradient.tsx",
+      "src/design-system/m2/servicePalette.ts",
+      "src/screens/workspace/StudentPhoneFrame.tsx",
+      "src/native/StudentTabBar.tsx",
+      "src/features/phoneKit/studentPhoneBoards.tsx",
+      "src/native/M2ReminderScreens.tsx"
     ],
     "M2Trends": [
       "src/features/labResults/views/M2TrendsView.tsx",
@@ -1847,7 +1910,77 @@
     ],
     "VitalTrends": [],
     "WebReportInsights": [],
-    "WebReportAssistant": []
+    "WebReportAssistant": [],
+    "M2FindCare": [
+      "src/features/careDirectory/views/CareDirectoryView.tsx",
+      "src/features/careDirectory/views/CareDirectoryRoute.tsx",
+      "src/features/careDirectory/views/careDirectoryParts.tsx",
+      "src/features/careDirectory/viewmodel/CareDirectoryViewModel.ts",
+      "src/features/careDirectory/model/types.ts",
+      "src/features/careDirectory/model/geo.ts",
+      "src/features/careDirectory/model/location.ts",
+      "src/native/CareDirectoryScreens.tsx",
+      "src/native/deviceLocation.ts",
+      "src/features/phoneKit/studentPhoneBoards.tsx",
+      "src/screens/workspace/StudentPhoneFrame.tsx",
+      "src/design-system/m2/M2Parts.tsx"
+    ],
+    "M2FacilityDetail": [
+      "src/features/careDirectory/views/FacilityDetailView.tsx",
+      "src/features/careDirectory/views/careDirectoryParts.tsx",
+      "src/features/careDirectory/viewmodel/CareDirectoryViewModel.ts",
+      "src/features/careDirectory/model/types.ts",
+      "src/features/careDirectory/model/geo.ts",
+      "src/features/careDirectory/model/location.ts"
+    ],
+    "WebFindCare": [
+      "src/features/careDirectory/views/PublicFindCarePage.tsx",
+      "src/features/careDirectory/screens/FindCareScreen.tsx",
+      "src/features/careDirectory/views/findCare.css",
+      "src/features/careDirectory/views/CareDirectoryView.tsx",
+      "src/features/careDirectory/views/FacilityDetailView.tsx",
+      "src/features/careDirectory/views/CareDirectoryRoute.tsx",
+      "src/features/careDirectory/views/careDirectoryParts.tsx",
+      "src/features/careDirectory/viewmodel/CareDirectoryViewModel.ts",
+      "src/features/careDirectory/model/types.ts",
+      "src/features/careDirectory/model/geo.ts",
+      "src/features/careDirectory/model/location.ts",
+      "src/design-system/public-site/publicSiteNav.ts"
+    ],
+    "AdminCareDirectory": [
+      "src/features/careDirectory/admin/CareDirectoryAdminView.tsx",
+      "src/features/careDirectory/viewmodel/CareDirectoryAdminViewModel.ts",
+      "src/features/campus/console/campusPages.tsx",
+      "src/design-system/campus-shell/campusNav.ts",
+      "src/screens/workspace/admin/SuperAdminScreens.tsx",
+      "src/screens/workspace/admin/superAdminNavigation.ts"
+    ],
+    "M2Steps": [
+      "src/features/steps/views/M2StepsView.tsx",
+      "src/features/steps/views/M2StepsRoute.tsx",
+      "src/features/steps/viewmodel/StepsViewModel.ts",
+      "src/features/steps/data/stepsApi.ts",
+      "src/features/steps/model/stepSources.ts",
+      "src/features/steps/sources/connectors.ts",
+      "src/features/steps/sources/healthSources.ts",
+      "src/native/stepConnectors.ts",
+      "src/native/healthSync.ts",
+      "src/native/M2HealthScreens.tsx",
+      "src/features/phoneKit/studentPhoneBoards.tsx",
+      "src/design-system/m2/PillNav.tsx",
+      "src/design-system/m2/M2Parts.tsx",
+      "src/design-system/m2/Gradient.tsx",
+      "src/design-system/m2/servicePalette.ts",
+      "src/design-system/m2/m2Motion.ts",
+      "src/screens/workspace/StudentPhoneFrame.tsx",
+      "src/native/StudentTabBar.tsx"
+    ],
+    "SetPasscode": [
+      "src/features/auth/screens/SetPasscodeScreen.tsx",
+      "src/features/auth/views/SetPasscodeView.tsx",
+      "src/features/auth/views/SignInFrame.tsx",
+      "src/features/auth/views/AuthHeroSlides.tsx"
+    ]
   },
   "inProgress": {
     "Teleconsult": [
@@ -1856,7 +1989,8 @@
     ],
     "Medications": [
       "src/screens/workspace/MedicationPanel.tsx",
-      "src/native/MedicineRemindersScreen.tsx"
+      "src/native/M2ReminderScreens.tsx",
+      "src/features/reminders/views/M2RemindersView.tsx"
     ],
     "Devices": [
       "src/screens/workspace/DevicesAndSensorsScreen.tsx"

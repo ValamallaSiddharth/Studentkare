@@ -275,3 +275,74 @@ Approved as a set; each settled on the conservative, honest option (TIER1_BUILD_
 - **D3-9** AdminSignIn is a separate public route `/staff-sign-in` with its own frame, reusing the OTP and 2FA endpoints. Backend: `POST /auth/otp/send` takes `audience: "STAFF"`, which sends a code only to an active non-student account by email and answers a student's email exactly like an unknown one (tests in `backend/tests/test_staff_sign_in.py`). Lock length, tries and session length are the server's own messages; "admin has been told" and new-device approval are not drawn (no backend). No lockout/session settings were added: the existing server limits are unchanged.
 - **Web brand panel** (WebSignIn): the board's "NABL lab tests with dorm sample pickup", "A free account" and "Live on 3 campuses" are unverified claims; three true benefit lines replace them.
 - **Routing**: `/verify` became a workspace route so the student web shell (WebVerify) and the phone frame (VerifyIdentity) draw it; `/lost-phone` stays public (it must work from a friend's phone) and draws the student web shell itself for a signed-in student.
+
+## Amendment 2026-10-22: team accounts (founder decision)
+
+Krishna Chintakayala (founder, named Tier 1 reviewer) decided on 2026-10-22 to have one fixed shared
+account per role on the live site, each with its own random 6-digit PIN shown once, until individual
+logins exist. This amends D3-9's "no demo or shared accounts" for those accounts only; everything else
+in D3-9 stands.
+
+- `/staff-sign-in` gains a "Team PIN" option beside the emailed code, shown only while the public
+  setting `auth.staff_pin_login_enabled` is on (the server refuses it too when off).
+- The PIN replaces the emailed code, never the authenticator: an account with one gets that step, and
+  super admin / counsellor are still held to setting one up.
+- One answer for every failure (unknown ID, student, wrong PIN, locked, disabled); lockout and rate
+  limits from the settings registry; every attempt audited, never the PIN; students never.
+- The staff page's "There are no shared accounts" line is removed (no longer true).
+- How it is run and replaced: `docs/guides/team-accounts.md`. Built in feat/role-accounts.
+
+## Amendment 2026-10-22 (b): sign-in redesign, remembered sign-in, student passcode (founder decision)
+
+Krishna Chintakayala (founder, named Tier 1 reviewer) asked for these on 2026-10-22 and approved them
+in the same message. Built in feat/auth-passcode. Everything in the WP-03 decisions above stands
+(emergency strip, language switch, terms, staff link, lost phone, campus ID "not available yet",
+channel logic from #203, no session without a verified code).
+
+**Logo.** The "SK" letters sat 44 units right of the shield's centre with the K touching its edge. They
+are re-centred, with margin, in the source mark `design/brand/studentkare-logo.svg` (so `BrandLogo` on
+web and Expo and `public/brand/sk-shield.svg` all follow), and a light keyline keeps the shield's edge
+visible on navy and dark (invisible on white). The logo on sign-in, create account and the public
+header links to the public home: `publicHomeUrl()` (`VITE_PUBLIC_SITE_URL` / `EXPO_PUBLIC_SITE_URL`,
+default the site root `/` on the app's own domain), never a hard-coded host.
+
+**Sign-in and create account.** One frame for both (and the code step): the web hero is an
+auto-advancing carousel of four true slides (records in one place; doctors and consults; medicines and
+lab tests; crisis help without signing in), drawn only with kit art (`Illustration`, `Icon3d`; nothing
+new was added). It advances every `motion.carousel` (4.2 s, `useAutoAdvance`), pauses on hover, focus
+and off-screen, has dot buttons, and under reduced motion neither advances nor animates. Phones get the
+compact header with the slides as a small swipeable strip. The form card enters with a short rise
+(none under reduced motion). A two-tab switch ("Sign in" / "Create account") marks the active page, and
+the create-account steps keep their "n of 6" progress.
+
+**Remembered sign-in (D-R).** After every student sign-in (code or passcode) the device remembers the
+account, email or phone, and the sign-in page offers "Continue as …" masked (`a•••@domain`,
+`+91 ••••••1234`). The device holds only an opaque HttpOnly token (`care_remembered_devices`, as for
+"remember me"): the identifier is never written where page scripts can read it (AGENTS.md rule 9),
+and no other device or the account learns anything new. "Not you? Use another account" hides it for
+this visit; "Forget this device" deletes it. Sign-out keeps its "Remember me on this device" choice
+(off by default, for shared campus computers): signing out without it forgets the device. Staff
+accounts are not remembered. The passcode and codes are never stored on the device.
+
+**Student passcode (D-P).** Optional, students only (team accounts keep their own PIN and page; the
+two UIs are not merged).
+- Exactly 4, 6 or 8 characters; digits, letters and symbols (printable ASCII, no spaces). The screen
+  says plainly that 4 is the weakest and 8 is recommended, and shows a strength hint.
+- Refused: common ones (0000, 1234, 123456, "password" in any form, keyboard rows…), one character
+  repeated or too few different characters, a repeated pattern, a run up or down, and the student's own
+  phone digits, email name, name or date of birth.
+- Stored only as the team PIN's salted, peppered scrypt hash (`care_student_passcodes`, platform plane).
+  Lockout after `auth.passcode_max_attempts` for `auth.passcode_lockout_minutes`, rate limits per
+  address and account, master switch `auth.passcode_login_enabled` (public; off hides every option and
+  the server refuses). Every attempt, set, change, reset and removal is audited, never the passcode.
+- **New-device rule (recommended and adopted):** a passcode is accepted only on a device that has
+  already signed in to the account, which the first time is always with a code. Someone who knows only
+  the number gets "On this device, sign in with a code first", the same answer whatever was typed.
+  "Forget this device" and lost phone's "sign out every other device" end it there too.
+- **Forgot passcode** = sign in with a code (always offered next to the passcode), then set a new one.
+  Replacing or removing a passcode needs the current one, or a sign-in proven with a code in the last
+  `auth.passcode_reset_window_minutes` (sessions record `code_verified_at`; a refresh keeps it; a
+  passcode sign-in never counts).
+- An authenticator, where the account has one, is still asked for after the passcode.
+- Offered after creating an account (Account ready → "Add a passcode") and in Profile → Sign-in &
+  security; on sign-in as "Use my passcode" beside "Send a code".

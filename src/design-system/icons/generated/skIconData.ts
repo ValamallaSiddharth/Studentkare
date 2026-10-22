@@ -3,7 +3,7 @@
 export type SkIconElement = readonly [tag: 'path' | 'circle' | 'rect' | 'line' | 'polyline' | 'polygon' | 'ellipse', attrs: Readonly<Record<string, string>>];
 export interface SkIconDef { readonly mode: 'line' | 'solid'; readonly els: readonly SkIconElement[] }
 
-/** 328 line/solid icons, 24 px grid, drawn with currentColor. */
+/** 335 line/solid icons, 24 px grid, drawn with currentColor. */
 export const skIcons = {
   "alert-triangle": { mode: "line", els: [["path",{"d":"M 12 3 l 10 18 H 2 z"}],["path",{"d":"M 12 10 v 4 M 12 17.5 v 0.5"}]] },
   "check": { mode: "line", els: [["path",{"d":"M 5 12.5 l 4.5 4.5 L 19 7"}]] },
@@ -333,6 +333,13 @@ export const skIcons = {
   "chart-line-axes": { mode: "line", els: [["path",{"d":"M 4 4 v 16 h 16"}],["path",{"d":"M 8 15 l 3 -4 l 3 2 l 5 -6"}]] },
   "trend-zigzag": { mode: "line", els: [["path",{"d":"M 3 17 l 6 -6 l 4 4 l 8 -8"}]] },
   "minus": { mode: "line", els: [["path",{"d":"M 5 12 h 14"}]] },
+  "hospital": { mode: "line", els: [["path",{"d":"M 4 21 V 8 a 1 1 0 0 1 1 -1 h 3 V 4 a 1 1 0 0 1 1 -1 h 6 a 1 1 0 0 1 1 1 v 3 h 3 a 1 1 0 0 1 1 1 v 13"}],["path",{"d":"M 2 21 h 20"}],["path",{"d":"M 12 5.5 v 4 M 10 7.5 h 4"}],["path",{"d":"M 10 21 v -4 h 4 v 4"}]] },
+  "directions": { mode: "line", els: [["path",{"d":"M 10.6 2.6 a 2 2 0 0 1 2.8 0 l 8 8 a 2 2 0 0 1 0 2.8 l -8 8 a 2 2 0 0 1 -2.8 0 l -8 -8 a 2 2 0 0 1 0 -2.8 z"}],["path",{"d":"M 9 15 v -3 a 1 1 0 0 1 1 -1 h 5"}],["path",{"d":"M 13 8.5 l 2.5 2.5 l -2.5 2.5"}]] },
+  "skip-forward": { mode: "line", els: [["path",{"d":"M 5 5 v 14 l 10 -7 z"}],["path",{"d":"M 19 5 v 14"}]] },
+  "bell-off": { mode: "line", els: [["path",{"d":"M 6 16 V 11 a 6 6 0 0 1 12 0 v 5 l 2 2 H 4 z"}],["path",{"d":"M 10 20 a 2 2 0 0 0 4 0"}],["path",{"d":"M 3 3 l 18 18"}]] },
+  "pause": { mode: "line", els: [["path",{"d":"M 8 5 v 14"}],["path",{"d":"M 16 5 v 14"}]] },
+  "play": { mode: "line", els: [["path",{"d":"M 8 5 v 14 l 11 -7 z"}]] },
+  "eye-off": { mode: "line", els: [["path",{"d":"M 2.5 12 S 6 6 12 6 s 9.5 6 9.5 6 -3.5 6 -9.5 6 -9.5 -6 -9.5 -6 z"}],["circle",{"cx":"12","cy":"12","r":"2.5"}],["path",{"d":"M 3 3 l 18 18"}]] },
 } as const satisfies Record<string, SkIconDef>;
 export type SkIconName = keyof typeof skIcons;
 
@@ -470,7 +477,7 @@ export const skIllustrations = {
 } as const;
 export type SkIllustrationName = keyof typeof skIllustrations;
 
-export const skBrandLogo = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"29\" height=\"34\" viewBox=\"0 0 512 600\" fill=\"none\" aria-hidden=\"true\"><defs><linearGradient id=\"sklogo0\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0\" stop-color=\"#7C89F5\"></stop><stop offset=\"0.45\" stop-color=\"#4759E8\"></stop><stop offset=\"1\" stop-color=\"#2F3ED6\"></stop></linearGradient></defs><path d=\"M256 6 6 84v250c0 128 106 224 250 260 144-36 250-132 250-260V84z\" fill=\"url(#sklogo0)\"></path><path d=\"M198 196c-38 0-64 22-64 54 0 28 18 42 54 50l20 5c18 4 25 10 25 20 0 13-13 21-33 21-24 0-40-10-46-28l-45 17c11 34 45 54 91 54 46 0 78-24 78-61 0-30-19-45-58-54l-21-5-18-5c-10-4-14-9-14-16 0-11 11-18 29-18 20 0 33 8 39 24l44-16c-11-27-40-42-81-42z\" fill=\"#FFFFFF\"></path><path d=\"M312 200h48v76l68-76h58l-79 86 83 100h-59l-71-88v88h-48z\" fill=\"#FFFFFF\"></path></svg>";
+export const skBrandLogo = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"29\" height=\"34\" viewBox=\"-8 -8 528 616\" fill=\"none\" aria-hidden=\"true\"><defs><linearGradient id=\"sklogo0\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0\" stop-color=\"#7C89F5\"></stop><stop offset=\"0.45\" stop-color=\"#4759E8\"></stop><stop offset=\"1\" stop-color=\"#2F3ED6\"></stop></linearGradient><linearGradient id=\"sklogo1\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0\" stop-color=\"#FFFFFF\" stop-opacity=\"0.3\"></stop><stop offset=\"1\" stop-color=\"#FFFFFF\" stop-opacity=\"0\"></stop></linearGradient></defs><path d=\"M256 6 6 84v250c0 128 106 224 250 260 144-36 250-132 250-260V84z\" fill=\"url(#sklogo0)\" stroke=\"#FFFFFF\" stroke-opacity=\"0.55\" stroke-width=\"12\" stroke-linejoin=\"round\"></path><path d=\"M256 6 6 84v250c0 128 106 224 250 260V6z\" fill=\"url(#sklogo1)\"></path><g transform=\"matrix(0.84 0 0 0.84 4.4 40.3)\"><path d=\"M198 196c-38 0-64 22-64 54 0 28 18 42 54 50l20 5c18 4 25 10 25 20 0 13-13 21-33 21-24 0-40-10-46-28l-45 17c11 34 45 54 91 54 46 0 78-24 78-61 0-30-19-45-58-54l-21-5-18-5c-10-4-14-9-14-16 0-11 11-18 29-18 20 0 33 8 39 24l44-16c-11-27-40-42-81-42z\" fill=\"#FFFFFF\"></path><path d=\"M312 200h48v76l68-76h58l-79 86 83 100h-59l-71-88v88h-48z\" fill=\"#FFFFFF\"></path></g></svg>";
 
 /** Text symbols in the designs that must be drawn with an icon instead. */
 export const skTextGlyphIcons = {

@@ -25,11 +25,13 @@ from services.integration_config import (
     sanitize,
     save_to_db,
 )
+from services.otp_delivery import reset_whatsapp_status, whatsapp_status
 from services.workflow_auth import (
     StrictModel,
     authenticated_user,
     issue_session,
     limit,
+    remember_device,
     require_super_admin,
     session_payload,
     two_factor_enforced_roles,
@@ -65,8 +67,11 @@ def get_public_config(response: Response, db: DBSession = Depends(workflow_db)):
 
 
 @router.get("/admin/integrations")
-def list_integrations(user: dict = Depends(require_super_admin)):
-    return {"integrations": {k: sanitize(k) for k in INTEGRATIONS_DB}}
+def list_integrations(user: dict = Depends(require_super_admin), db: DBSession = Depends(workflow_db)):
+    # WhatsApp can be configured and still not deliver (the session logged out):
+    # say which, so ops know to re-link it rather than re-enter keys.
+    return {"integrations": {k: sanitize(k) for k in INTEGRATIONS_DB},
+            "status": {"openwa": whatsapp_status(db)}}
 
 
 @router.put("/admin/integrations/{provider}")
@@ -84,6 +89,8 @@ def update_integration(provider: str, body: ConfigUpdate,
             continue
         current[k] = v
     save_to_db(provider)
+    if provider == "openwa":
+        reset_whatsapp_status()
     _audit(db, user, "INTEGRATION_CONFIG_UPDATED", provider)
     return {"success": True, "provider": provider, "config": sanitize(provider)}
 
@@ -91,15 +98,15 @@ def update_integration(provider: str, body: ConfigUpdate,
 @router.post("/admin/integrations/{provider}/test")
 def test_integration(provider: str, user: dict = Depends(require_super_admin)):
     if provider == "openwa":
-        cfg = INTEGRATIONS_DB["openwa"]
-        if not cfg.get("base_url") or not cfg.get("api_key") or not cfg.get("session_id"):
-            return {"success": False, "connected": False, "message": "OpenWA not configured (base_url/api_key/session_id required)"}
-        try:
-            r = httpx.get(f"{cfg['base_url'].rstrip('/')}/api/sessions/{cfg['session_id']}",
-                          headers={"X-API-Key": cfg["api_key"]}, timeout=10)
-            return {"success": 200 <= r.status_code < 300, "connected": 200 <= r.status_code < 300, "http": r.status_code}
-        except (httpx.HTTPError, OSError, ValueError) as err:
-            return {"success": False, "connected": False, "message": str(err)[:300]}
+        # The same session check that decides whether students are offered WhatsApp.
+        status = whatsapp_status(refresh=True)
+        if not status["configured"]:
+            return {"success": False, "connected": False, "state": status["state"],
+                    "message": "OpenWA not configured (base_url/api_key/session_id required)"}
+        return {"success": status["connected"], "connected": status["connected"], "state": status["state"],
+                "message": "WhatsApp session connected" if status["connected"]
+                else f"OpenWA is configured but the WhatsApp session is not connected ({status['reason']}). "
+                     "Re-link it by scanning the session QR code in OpenWA."}
     if provider == "posthog":
         cfg = INTEGRATIONS_DB["posthog"]
         if not cfg.get("enabled") or not cfg.get("api_key"):
@@ -155,6 +162,11 @@ def test_integration(provider: str, user: dict = Depends(require_super_admin)):
             return {"success": False, "message": f"Slack rejected token: {err}"}
         except (httpx.HTTPError, OSError, ValueError) as err:
             return {"success": False, "message": str(err)[:300]}
+    if provider == "abdm_hfr":
+        # Never a live call: the connector reports exactly what it can and cannot do.
+        from services import hfr_registry
+        current = hfr_registry.status()
+        return {"success": False, "state": current["state"], "message": current["message"]}
     if provider in ("otp", "twofa"):
         return {"success": True, "message": f"{provider} policy valid", "config": sanitize(provider)}
     if provider == "platform":
@@ -325,7 +337,7 @@ def disable_2fa(body: TwoFAToken, user: dict = Depends(authenticated_user), db: 
 
 @router.post("/auth/2fa/challenge")
 def challenge_2fa(body: TwoFAToken, request: Request, response: Response, db: DBSession = Depends(workflow_db)):
-    account_id = twofa_store.consume_pending(db, body.tempToken or "")
+    account_id, first_factor = twofa_store.consume_pending_with_factor(db, body.tempToken or "")
     if not account_id:
         db.commit()
         raise HTTPException(401, "Expired 2FA session. Verify your code again.")
@@ -336,7 +348,9 @@ def challenge_2fa(body: TwoFAToken, request: Request, response: Response, db: DB
     account = db.get(M.Account, account_id)
     if not account or not account.active:
         raise HTTPException(404, "No active account was found.")
-    csrf = issue_session(db, account, response, request)
+    code_proven = time.time() if first_factor == "CODE" else 0.0
+    csrf = issue_session(db, account, response, request, code_verified_at=code_proven)
+    remember_device(db, account, request, response)
     db.commit()
     return {"success": True, "user": session_payload(db, account), "csrfToken": csrf}
 

@@ -31,7 +31,7 @@ import type { M2HomeData } from '../data/useM2Home';
  * backend are left out ("Clinic pickup today", the delivery address picker);
  * "Call to order" shows only once an order line is configured.
  */
-export type ServiceKey = 'you' | 'medicines' | 'labs' | 'consults' | 'vaccines' | 'insurance' | 'campus';
+export type ServiceKey = 'you' | 'medicines' | 'labs' | 'consults' | 'nearMe' | 'vaccines' | 'insurance' | 'campus';
 
 export interface M2HomeLinks {
   sos: () => void;
@@ -96,6 +96,8 @@ const SERVICES: readonly { key: ServiceKey; label: MessageKey; icon: ServiceTile
   { key: 'medicines', label: 'm2.svc.medicines', icon: 'pill-3', hue: 'teal' },
   { key: 'labs', label: 'm2.svc.labs', icon: 'lab', hue: 'violet' },
   { key: 'consults', label: 'm2.svc.consults', icon: 'stetho', hue: 'blue' },
+  // Find care near you: hospitals, pharmacies, ambulance and doctors by department.
+  { key: 'nearMe', label: 'fc.svc.nearMe', icon: 'map-pin-2', hue: 'orange' },
   { key: 'vaccines', label: 'm2.svc.vaccines', icon: 'syringe', hue: 'amber' },
   { key: 'insurance', label: 'm2.svc.insurance', icon: 'shield', hue: 'green' },
   { key: 'campus', label: 'm2.svc.campus', icon: 'home-2', hue: 'sky' },
@@ -113,7 +115,7 @@ function TodayTile({ icon, hue, title, onPress, testID }: { icon: 'doc' | 'refre
 function MedsCard({ data, onPress }: { data: M2HomeData['meds']; onPress: () => void }) {
   const t = useT();
   const s = data.summary;
-  const left = s ? s.planned - s.taken : 0;
+  const left = s ? s.planned - s.taken - s.skipped : 0;
   const line = data.loading ? t('m2.home.medsLoading') : data.failed ? t('m2.home.medsFailed') : !s ? t('m2.home.medsNone')
     : left > 0 ? t(left === 1 ? 'm2.home.medsLeftOne' : 'm2.home.medsLeft', { count: left }) : t('m2.home.medsAllTaken');
   const spoken = s ? `${t('m2.home.medsEyebrow')}. ${t('m2.home.medsSpoken', { taken: s.taken, planned: s.planned })}. ${line}` : `${t('m2.home.medsEyebrow')}. ${line}`;

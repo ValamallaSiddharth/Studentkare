@@ -38,14 +38,14 @@ const later = (hours: number) => new Date(Date.now() + hours * HOUR).toISOString
 function homeLinks(): M2HomeLinks {
   return {
     sos: vi.fn(), menu: vi.fn(), notifications: vi.fn(), cart: vi.fn(), search: vi.fn(), uploadRx: vi.fn(), place: vi.fn(),
-    services: { medicines: vi.fn(), labs: vi.fn(), consults: vi.fn(), vaccines: vi.fn(), insurance: vi.fn(), campus: vi.fn() },
+    services: { medicines: vi.fn(), labs: vi.fn(), consults: vi.fn(), nearMe: vi.fn(), vaccines: vi.fn(), insurance: vi.fn(), campus: vi.fn() },
     labs: vi.fn(), generics: vi.fn(), uploadReport: vi.fn(), meds: vi.fn(), buyAgain: vi.fn(), consult: vi.fn(), bookConsult: vi.fn(),
     concern: vi.fn(), product: vi.fn(), emergencyCard: vi.fn(), pass: vi.fn(), hostelVisit: vi.fn(), camp: vi.fn(),
   };
 }
 
 const DATA: M2HomeData = {
-  meds: { loading: false, failed: false, summary: { taken: 2, planned: 3 } },
+  meds: { loading: false, failed: false, summary: { taken: 2, planned: 3, skipped: 0 } },
   consult: { loading: false, next: { id: 'a1', slotStart: later(30), status: 'CONFIRMED' } },
   buyAgainCount: 3,
   camp: null,
@@ -54,7 +54,7 @@ const DATA: M2HomeData = {
 describe('Mobile 2.0 Home data (pure)', () => {
   it('counts only structured doses, never more taken than planned', () => {
     expect(medsSummary({ plans: [{ planId: 'a', dosesPlanned: 2, dosesTaken: 3 }, { planId: 'b', dosesPlanned: null, dosesTaken: 1 }, { planId: 'c', dosesPlanned: 1, dosesTaken: 0 }] }))
-      .toEqual({ taken: 2, planned: 3 });
+      .toEqual({ taken: 2, planned: 3, skipped: 0 });
     expect(medsSummary({ plans: [{ planId: 'b', dosesPlanned: null, dosesTaken: 1 }] })).toBeNull();
     expect(medsSummary(null)).toBeNull();
   });
@@ -88,6 +88,9 @@ describe('M2Home', () => {
     expect(within(rail).getByRole('link', { name: 'For You' })).toHaveAttribute('aria-current', 'page');
     fireEvent.click(within(rail).getByRole('link', { name: 'Lab tests' }));
     expect(links.services.labs).toHaveBeenCalled();
+    // Find care near you, from the rail.
+    fireEvent.click(within(rail).getByRole('link', { name: 'Near me' }));
+    expect(links.services.nearMe).toHaveBeenCalled();
     // Medicines today: counts in words, no medicine named.
     const meds = screen.getByTestId('m2-home-meds');
     expect(meds).toHaveAttribute('aria-label', 'Medicines today. 2 of 3 doses taken today. 1 dose left today');

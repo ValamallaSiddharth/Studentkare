@@ -155,6 +155,11 @@ ORDERED_PAIRS: tuple[tuple[str, str], ...] = (
     ("wellness.water_goal_ml_min", "wellness.water_goal_ml_default"),
     ("wellness.water_goal_ml_default", "wellness.water_goal_ml_max"),
     ("wellness.water_entry_ml_min", "wellness.water_entry_ml_max"),
+    ("wellness.water_entry_ml_min", "wellness.water_glass_ml"),
+    ("wellness.water_glass_ml", "wellness.water_entry_ml_max"),
+    ("wellness.water_reminder_interval_minutes_min", "wellness.water_reminder_interval_minutes_default"),
+    ("wellness.water_reminder_interval_minutes_default", "wellness.water_reminder_interval_minutes_max"),
+    ("wellness.water_reminder_start_hour_default", "wellness.water_reminder_end_hour_default"),
     ("wellness.weight_kg_min", "wellness.weight_kg_max"),
     ("wellness.height_cm_min", "wellness.height_cm_max"),
     ("wellness.bmi_cutoff_low", "wellness.bmi_cutoff_mid"),
@@ -209,11 +214,35 @@ declare("shop.order_line_phone", STR, "", area="shop", unit="phone number (digit
         description="The order line students call to order medicines or book a lab test. Empty shows the call "
                     "buttons as not available yet.")
 
+# --- care directory ("Find care near you") -------------------------------------
+# A listing reaches students only while its last check is this recent; older ones
+# drop out until someone checks them again (services/care_directory.py).
+declare("care_directory.verification_max_age_days", INT, 365, area="care_directory", unit="days", minimum=30,
+        maximum=1095, description="How long a care-directory listing stays shown after it was last verified.")
+declare("care_directory.results_max", INT, 100, area="care_directory", unit="listings", minimum=10, maximum=200,
+        description="Most listings one care-directory request returns.")
+# The device location a student chooses to share stays on the device; these only
+# bound how long the app waits for it and how old a cached fix may be.
+declare("care_directory.location_timeout_seconds", INT, 15, area="care_directory", unit="seconds", minimum=3,
+        maximum=60, public=True, description="How long the app waits for the device location before saying so.")
+declare("care_directory.location_max_age_seconds", INT, 120, area="care_directory", unit="seconds", minimum=0,
+        maximum=900, public=True, description="Oldest device location fix the app reuses to sort by distance.")
+
 # --- medicines -------------------------------------------------------------
 declare("meds.dose_undo_minutes", INT, 30, area="meds", unit="minutes", minimum=0, maximum=240, public=True,
         description="How long after marking a dose taken or skipped the student can undo it.")
 declare("meds.times_per_day_max", INT, 6, area="meds", unit="doses per day", minimum=1, maximum=24, public=True,
         description="Most reminder times one medication plan may have in a day.")
+# The clock times a student can pick for a daily medicine reminder on the phone
+# (local notifications; the server sends none). Minutes after midnight.
+declare("meds.reminder_minute_morning", INT, 480, area="meds", unit="minutes after midnight", minimum=0,
+        maximum=1439, public=True, description="Time of the 'morning' medicine reminder slot on the phone.")
+declare("meds.reminder_minute_afternoon", INT, 840, area="meds", unit="minutes after midnight", minimum=0,
+        maximum=1439, public=True, description="Time of the 'afternoon' medicine reminder slot on the phone.")
+declare("meds.reminder_minute_evening", INT, 1200, area="meds", unit="minutes after midnight", minimum=0,
+        maximum=1439, public=True, description="Time of the 'evening' medicine reminder slot on the phone.")
+declare("meds.reminder_minute_night", INT, 1320, area="meds", unit="minutes after midnight", minimum=0,
+        maximum=1439, public=True, description="Time of the 'night' medicine reminder slot on the phone.")
 
 # --- student web (signed in) ----------------------------------------------
 declare("studentweb.report_ready_days", INT, 14, area="studentweb", unit="days", minimum=1, maximum=90, public=True,
@@ -230,18 +259,44 @@ declare("wellness.water_entry_ml_min", INT, 10, area="wellness", unit="ml", mini
         description="Smallest amount one water entry may record.")
 declare("wellness.water_entry_ml_max", INT, 2000, area="wellness", unit="ml", minimum=10, maximum=5000, public=True,
         description="Largest amount one water entry may record.")
+declare("wellness.water_glass_ml", INT, 250, area="wellness", unit="ml", minimum=10, maximum=2000, public=True,
+        description="How much one tap of '+ glass' logs on the Water card and screen.")
+declare("wellness.water_history_days", INT, 7, area="wellness", unit="days", minimum=2, maximum=31, public=True,
+        description="How many days, today included, the Water screen shows (GET /wellness/water/days).")
+# Water reminders are local notifications on the phone; the server sends none.
+declare("wellness.water_reminder_interval_minutes_min", INT, 60, area="wellness", unit="minutes", minimum=15,
+        maximum=720, public=True, description="Shortest gap a student can pick between water reminders.")
+declare("wellness.water_reminder_interval_minutes_default", INT, 120, area="wellness", unit="minutes", minimum=15,
+        maximum=720, public=True, description="Gap between water reminders until the student picks another.")
+declare("wellness.water_reminder_interval_minutes_max", INT, 240, area="wellness", unit="minutes", minimum=15,
+        maximum=720, public=True, description="Longest gap a student can pick between water reminders.")
+declare("wellness.water_reminder_interval_step_minutes", INT, 30, area="wellness", unit="minutes", minimum=5,
+        maximum=120, public=True, description="Step of the water reminder gap picker.")
+declare("wellness.water_reminder_start_hour_default", INT, 9, area="wellness", unit="hour of day", minimum=0,
+        maximum=23, public=True, description="First water reminder of the day until the student picks another hour.")
+declare("wellness.water_reminder_end_hour_default", INT, 21, area="wellness", unit="hour of day", minimum=0,
+        maximum=23, public=True, description="No water reminder after this hour until the student picks another.")
+declare("wellness.water_reminders_per_day_max", INT, 12, area="wellness", unit="reminders", minimum=1, maximum=24,
+        public=True, description="Most water reminders the phone schedules in one day.")
 declare("wellness.entry_backdate_days", INT, 7, area="wellness", unit="days", minimum=0, maximum=366, public=True,
         description="How far back a water entry or a body measurement may be dated.")
 declare("wellness.activity_backdate_days", INT, 366, area="wellness", unit="days", minimum=0, maximum=3660,
         public=True, description="How far back a day's manual activity totals may be entered.")
+declare("wellness.activity_sync_backdate_days", INT, 7, area="wellness", unit="days", minimum=0, maximum=30,
+        public=True, description="How far back a day's totals read on the phone (Apple Health, Health Connect, "
+                                 "the phone's motion sensor) may be synced.")
+declare("wellness.steps_live_sync_seconds", INT, 60, area="wellness", unit="seconds", minimum=15, maximum=3600,
+        public=True, description="While the Steps screen is open, how often the app re-reads today's total from a "
+                                 "connected source and syncs it.")
 # Not public: a server-side allowance for a phone clock that runs a little fast.
 declare("wellness.entry_future_tolerance_minutes", INT, 5, area="wellness", unit="minutes", minimum=0, maximum=60,
         description="How far in the future an entry's time may be before it is refused (clock skew).")
-# Upper bounds of one day's manual activity totals. The lower bound is 0 (a
+# Upper bounds of one day's activity totals, typed in or synced from the phone
+# (the server refuses a larger number from either). The lower bound is 0 (a
 # total cannot be negative) and standing minutes are bounded by the minutes in a
 # day; both are structural, not declared here.
 declare("wellness.activity_steps_max", INT, 100000, area="wellness", unit="steps", minimum=1000, maximum=1000000,
-        public=True, description="Most steps one day's manual entry may record.")
+        public=True, description="Most steps one day's total may record, typed in or synced from the phone.")
 declare("wellness.activity_distance_km_max", FLOAT, 200.0, area="wellness", unit="km", minimum=1, maximum=1000,
         public=True, description="Longest distance one day's manual entry may record.")
 declare("wellness.activity_floors_max", INT, 500, area="wellness", unit="floors", minimum=1, maximum=5000,
@@ -325,6 +380,74 @@ declare("platform.default_timezone", STR, "Asia/Kolkata", area="platform", unit=
 # identifier per 5 minutes, services/workflow_auth.py) still refuses extra sends.
 declare("auth.otp_resend_seconds", INT, 45, area="auth", unit="seconds", minimum=10, maximum=300, public=True,
         description="How long the code screen waits before offering to send a new sign-in code.")
+# WhatsApp is offered for sign-in codes only while its OpenWA session is connected
+# (services/otp_delivery.py). The session check and a failed send are remembered
+# for this long, so /auth/options stays cheap and a failing channel drops out
+# until a later success or a fresh check. Not public: the server decides.
+# Team accounts (services/team_accounts.py, founder decision 2026-10-22): one
+# shared account per role, signed in on /staff-sign-in with an ID and a 6-digit
+# PIN. The switch is public so the page hides the option when it is off; the
+# server refuses PIN sign-in then as well. A PIN has only a million values, so
+# the lockout and the rate limits below are what keep it from being guessed.
+declare("auth.staff_pin_login_enabled", BOOL, True, area="auth", public=True,
+        description="Whether team accounts may sign in on the staff page with their ID and PIN.")
+declare("auth.staff_pin_max_attempts", INT, 5, area="auth", unit="attempts", minimum=3, maximum=10,
+        description="Wrong PINs in a row before a team account is locked.")
+declare("auth.staff_pin_lockout_minutes", INT, 15, area="auth", unit="minutes", minimum=5, maximum=1440,
+        description="How long a team account stays locked after too many wrong PINs.")
+declare("auth.staff_pin_rate_window_minutes", INT, 15, area="auth", unit="minutes", minimum=1, maximum=120,
+        description="The window the PIN sign-in rate limits below are counted over.")
+declare("auth.staff_pin_ip_max_attempts", INT, 20, area="auth", unit="attempts", minimum=5, maximum=200,
+        description="PIN sign-in attempts one network address may make in the rate window.")
+declare("auth.staff_pin_id_max_attempts", INT, 10, area="auth", unit="attempts", minimum=5, maximum=100,
+        description="PIN sign-in attempts against one ID in the rate window, whoever makes them.")
+# Student passcode (services/student_passcode.py, founder decision 2026-10-22): an
+# optional 4, 6 or 8 character secret a student may use instead of a code, only on
+# a device that has signed in to the account before. The switch is public so the
+# screens hide the option when it is off; the server refuses it then as well. A
+# 4-character passcode is weak, so the lockout and rate limits below matter.
+declare("auth.passcode_login_enabled", BOOL, True, area="auth", public=True,
+        description="Whether students may set a passcode and sign in with it on a device they have used before.")
+declare("auth.passcode_max_attempts", INT, 5, area="auth", unit="attempts", minimum=3, maximum=10,
+        description="Wrong passcodes in a row before a student's passcode is locked.")
+declare("auth.passcode_lockout_minutes", INT, 15, area="auth", unit="minutes", minimum=5, maximum=1440,
+        description="How long a student's passcode stays locked after too many wrong tries (a code still works).")
+declare("auth.passcode_rate_window_minutes", INT, 15, area="auth", unit="minutes", minimum=1, maximum=120,
+        description="The window the passcode sign-in rate limits below are counted over.")
+declare("auth.passcode_ip_max_attempts", INT, 20, area="auth", unit="attempts", minimum=5, maximum=200,
+        description="Passcode sign-in attempts one network address may make in the rate window.")
+declare("auth.passcode_id_max_attempts", INT, 10, area="auth", unit="attempts", minimum=5, maximum=100,
+        description="Passcode sign-in attempts against one account in the rate window, whoever makes them.")
+declare("auth.passcode_reset_window_minutes", INT, 15, area="auth", unit="minutes", minimum=5, maximum=120,
+        description="How long after signing in with a code a student may replace or remove a passcode without the old one.")
+# Passwords (services/account_password.py, plan tier1-auth-password-2026-10-22):
+# team accounts first, students next. The switch and the minimum length are public
+# so the screens hide the option when off and show the rule; the server refuses
+# then as well. Unlike a PIN, a password works on a new device, so the lockout and
+# rate limits below are what stand between it and guessing.
+declare("auth.password_login_enabled", BOOL, True, area="auth", public=True,
+        description="Whether accounts that have a password may sign in with it.")
+declare("auth.password_min_length", INT, 10, area="auth", unit="characters", minimum=8, maximum=64, public=True,
+        description="The shortest password that can be set.")
+declare("auth.password_max_attempts", INT, 5, area="auth", unit="attempts", minimum=3, maximum=10,
+        description="Wrong passwords in a row before an account's password is locked.")
+declare("auth.password_lockout_minutes", INT, 15, area="auth", unit="minutes", minimum=5, maximum=1440,
+        description="How long a password stays locked after too many wrong tries (other sign-in methods still work).")
+declare("auth.password_rate_window_minutes", INT, 15, area="auth", unit="minutes", minimum=1, maximum=120,
+        description="The window the password sign-in rate limits below are counted over.")
+declare("auth.password_ip_max_attempts", INT, 20, area="auth", unit="attempts", minimum=5, maximum=200,
+        description="Password sign-in attempts one network address may make in the rate window.")
+declare("auth.password_id_max_attempts", INT, 10, area="auth", unit="attempts", minimum=5, maximum=100,
+        description="Password sign-in attempts against one ID in the rate window, whoever makes them.")
+# B2B invites (services/student_invites.py, plan tier1-auth-password-2026-10-22 b):
+# a partner college creates a student's account and sends a one-time link; the
+# temporary password goes separately. Both stop working after this long.
+declare("auth.invite_link_hours", INT, 72, area="auth", unit="hours", minimum=1, maximum=336,
+        description="How long a college's invite link and its temporary password work.")
+declare("auth.whatsapp_status_cache_seconds", INT, 60, area="auth", unit="seconds", minimum=5, maximum=900,
+        description="How long a WhatsApp session check (or a failed WhatsApp send) is trusted before checking again.")
+declare("auth.whatsapp_status_timeout_seconds", INT, 3, area="auth", unit="seconds", minimum=1, maximum=10,
+        description="Longest the server waits for OpenWA to answer the WhatsApp session check.")
 
 # --- consultations ---------------------------------------------------------
 declare("consult.media_join_before_minutes", INT, 15, area="consult", unit="minutes", minimum=0, maximum=120,

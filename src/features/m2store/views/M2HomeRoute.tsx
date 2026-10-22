@@ -23,7 +23,7 @@ export function shopPath(filter: ShopFilter): string {
 }
 
 const SERVICE_ROUTES = {
-  medicines: 'shop', labs: 'lab-tests', consults: 'care', vaccines: 'preventive-care', insurance: 'insurance', campus: 'digital-id',
+  medicines: 'shop', labs: 'lab-tests', consults: 'care', nearMe: 'find-care', vaccines: 'preventive-care', insurance: 'insurance', campus: 'digital-id',
 } as const satisfies Record<Exclude<ServiceKey, 'you'>, string>;
 
 export function M2HomeRoute(): React.ReactElement {
@@ -53,6 +53,7 @@ export function M2HomeRoute(): React.ReactElement {
           medicines: () => navigate(SERVICE_ROUTES.medicines),
           labs: () => navigate(SERVICE_ROUTES.labs),
           consults: () => navigate(SERVICE_ROUTES.consults),
+          nearMe: () => navigate(SERVICE_ROUTES.nearMe),
           vaccines: () => navigate(SERVICE_ROUTES.vaccines),
           insurance: () => navigate(SERVICE_ROUTES.insurance),
           campus: () => navigate(SERVICE_ROUTES.campus),
@@ -60,7 +61,7 @@ export function M2HomeRoute(): React.ReactElement {
         labs: () => navigate('lab-tests'),
         generics: () => routerNavigate(shopPath({ category: 'medicines' })),
         uploadReport: () => navigate('records'),
-        meds: () => navigate('medications'),
+        meds: () => navigate('health/medicines'),
         buyAgain: () => navigate('buy-again'),
         consult: () => navigate('appointments'),
         bookConsult: () => navigate('care'),

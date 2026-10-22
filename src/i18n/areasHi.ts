@@ -1,12 +1,16 @@
 // keep-sorted start
+import { accountContactsHi } from './areas/accountContacts';
 import { adminBoardHi } from './areas/adminBoard';
 import { adminGovHi } from './areas/adminGov';
 import { adminHi } from './areas/admin';
 import { assistHi } from './areas/assist';
+import { authChannelsHi } from './areas/authChannels';
+import { authPasscodeHi } from './areas/authPasscode';
 import { campusBoardsHi } from './areas/campusBoards';
 import { campusConsoleHi } from './areas/campusConsole';
 import { campusHi } from './areas/campus';
 import { campusSafetyHi } from './areas/campusSafety';
+import { careDirectoryHi } from './areas/careDirectory';
 import { careHi } from './areas/care';
 import { clinicianHi } from './areas/clinician';
 import { clinicianWorkHi } from './areas/clinicianWork';
@@ -16,6 +20,7 @@ import { identityHi } from './areas/identity';
 import { labbookHi } from './areas/labbook';
 import { landingHi } from './areas/landing';
 import { launchHi } from './areas/launch';
+import { m2remindersHi } from './areas/m2reminders';
 import { m2valuesHi } from './areas/m2values';
 import { memberHi } from './areas/member';
 import { mobile2HealthHi } from './areas/mobile2health';
@@ -32,9 +37,13 @@ import { phonestoreHi } from './areas/phonestore';
 import { rewardsHi } from './areas/rewards';
 import { safetyHi } from './areas/safety';
 import { shopwebHi } from './areas/shopweb';
+import { stepsHi } from './areas/steps';
+import { studentInvitesHi } from './areas/studentInvites';
+import { studentPasswordHi } from './areas/studentPassword';
 import { studentshellHi } from './areas/studentshell';
 import { studentwebHi } from './areas/studentweb';
 import { studentwebT1Hi } from './areas/studentwebT1';
+import { teamAccountsHi } from './areas/teamAccounts';
 import { wellnessHi } from './areas/wellness';
 // keep-sorted end
 
@@ -46,14 +55,18 @@ import { wellnessHi } from './areas/wellness';
  */
 export const areasHi = {
   // keep-sorted start
+  ...accountContactsHi,
   ...adminBoardHi,
   ...adminGovHi,
   ...adminHi,
   ...assistHi,
+  ...authChannelsHi,
+  ...authPasscodeHi,
   ...campusBoardsHi,
   ...campusConsoleHi,
   ...campusHi,
   ...campusSafetyHi,
+  ...careDirectoryHi,
   ...careHi,
   ...clinicianHi,
   ...clinicianWorkHi,
@@ -63,6 +76,7 @@ export const areasHi = {
   ...labbookHi,
   ...landingHi,
   ...launchHi,
+  ...m2remindersHi,
   ...m2valuesHi,
   ...memberHi,
   ...mobile2HealthHi,
@@ -79,9 +93,13 @@ export const areasHi = {
   ...rewardsHi,
   ...safetyHi,
   ...shopwebHi,
+  ...stepsHi,
+  ...studentInvitesHi,
+  ...studentPasswordHi,
   ...studentshellHi,
   ...studentwebHi,
   ...studentwebT1Hi,
+  ...teamAccountsHi,
   ...wellnessHi,
   // keep-sorted end
 };
