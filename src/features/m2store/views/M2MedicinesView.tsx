@@ -3,6 +3,7 @@ import { Animated, Linking, Pressable, ScrollView, StyleSheet, Text, View } from
 import { Icon } from '@/design-system/icons';
 import { ErrorState, Rise, Skeleton } from '@/design-system';
 import {
+  cardLabel,
   Gradient, LiftCard, M2Card, M2Header, M2Heading, M2SearchField, M2SectionHead, M2_NAV_CLEARANCE, NAVY_STOPS, NotYetTile, RoundButton, SERVICE_HUES,
   SoftIcon, SoftTileGrid, floatTransform, heroStops, m2Text, useAmbientMotion, useLift, useLoop, useOwnPhoneChrome,
 } from '@/design-system/m2';
@@ -49,6 +50,8 @@ export interface M2MedicinesLinks {
   seeAll: () => void;
   rewards?: () => void;
   labs?: () => void;
+  /** Medicine information: reviewed label information, by name or photo (plan tier1-medicine-info-2026-10-22). */
+  medicineInfo?: () => void;
 }
 
 export interface M2MedicinesViewProps {
@@ -155,7 +158,7 @@ export function M2MedicinesView({ links, cartCount, shelf, points, labFromPaise 
       </Rise>
 
       <Rise index={3} style={[styles.gutter, styles.heroRow]}>
-        <Pressable role="link" accessibilityRole="link" accessibilityLabel={`${t('m2.med.genericsTitle')}. ${t('m2.med.genericsCta')}`} aria-label={`${t('m2.med.genericsTitle')}. ${t('m2.med.genericsCta')}`}
+        <Pressable role="link" accessibilityRole="link" {...cardLabel(`${t('m2.med.genericsTitle')}. ${t('m2.med.genericsCta')}`)}
           onPress={links.generics} testID="m2-med-generics" style={(state: PressState) => [styles.genericsPress, lift(state)]}>
           <Gradient colors={heroStops('green')} style={styles.generics}>
             <View pointerEvents="none" style={styles.genericsRing} />
@@ -194,6 +197,16 @@ export function M2MedicinesView({ links, cartCount, shelf, points, labFromPaise 
           </View>
           <Icon name="chevron-right" size={16} color={color.text3} strokeWidth={2.6} />
         </LiftCard>
+        {links.medicineInfo ? (
+          <LiftCard label={`${t('mi.entryTitle')}. ${t('mi.entryBody')}`} onPress={links.medicineInfo} testID="m2-med-info" style={[styles.linkCard, styles.infoCard]}>
+            <SoftIcon icon="pill" hue="teal" tile={44} iconSize={22} />
+            <View style={styles.grow}>
+              <Text style={m2Text.cardTitle}>{t('mi.entryTitle')}</Text>
+              <Text style={m2Text.meta}>{t('mi.entryBody')}</Text>
+            </View>
+            <Icon name="chevron-right" size={16} color={color.text3} strokeWidth={2.6} />
+          </LiftCard>
+        ) : null}
       </Rise>
 
       <Rise index={6}>
@@ -284,6 +297,7 @@ const styles = StyleSheet.create({
   infoCol: { flex: 1, gap: space.s12 },
   info: { flex: 1, padding: space.s12, justifyContent: 'space-between', gap: space.s6 },
   infoEyebrow: { fontFamily: font.family.sans, fontSize: font.size.caption, fontWeight: fontWeight(font.weight.heavy), letterSpacing: 0.8, textTransform: 'uppercase' },
+  infoCard: { marginTop: space.s12 },
   linkCard: { borderRadius: 22, paddingVertical: space.s14, paddingHorizontal: space.s16, flexDirection: 'row', alignItems: 'center', gap: space.s12, backgroundColor: color.surface, ...shadowStyle(shadow.card) },
   rail: { paddingHorizontal: space.gutterPhone, paddingBottom: space.s8, gap: space.s12 },
   deal: { width: 156 },

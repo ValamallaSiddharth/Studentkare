@@ -12,6 +12,7 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     String,
+    Text,
     UniqueConstraint,
     event,
 )
@@ -43,6 +44,12 @@ class Account(Base):
     # with a PIN, scoped to the test campus / test partner organisation so it sees
     # no real student's data. Set only by the team-accounts command, never by an API.
     is_team_account: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false())
+    # CAMPUS_ADMIN / COUNSELLOR only: the campus this staff member acts for. Its own
+    # column, never a profile key, because PATCH /profile writes the profile and a
+    # campus scope taken from there let staff move themselves into any college
+    # (audit C1). Set only by a super admin (create_staff, assign_campus), the
+    # provisioning script and the team-accounts command.
+    staff_campus: Mapped[str] = mapped_column(String(160), default="", server_default="")
 
 
 class StaffPinCredential(Base):
@@ -154,6 +161,10 @@ class Session(Base):
     # e.g. a passcode or a team PIN). A refresh keeps it. A student may replace a
     # forgotten passcode only shortly after a code sign-in (services/student_passcode.py).
     code_verified_at: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    # When the sign-in that started this chain of refreshes happened. A refresh
+    # keeps it, so a session can't be renewed past auth.session_absolute_hours
+    # (audit L1). 0 = issued before this column existed.
+    signed_in_at: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
 
 
 class RememberedDevice(Base):
@@ -399,6 +410,68 @@ class MedicineIngredient(Base):
     strength_unit: Mapped[str] = mapped_column(String(12))
 
 
+class MedicineInfoField(Base):
+    """One field of a medicine's information, with where it came from and who reviewed it.
+
+    Plan tier1-medicine-info-2026-10-22. Product reference data (commerce plane,
+    beside the master), never about a person. Identity fields (brand,
+    composition, form, pack, manufacturer, schedule) keep no value here: they are
+    read from the master and reviewed against its current value. Monograph fields
+    (uses, side effects, warnings, storage, age availability) keep their value in
+    ``value``. A field reaches users only while ``state`` is REVIEWED and the hash
+    of its current value equals ``reviewed_hash`` (services/medicine_info.py).
+    """
+    __tablename__ = "care_medicine_info_fields"
+    __table_args__ = (
+        UniqueConstraint("medicine_id", "field"),
+        CheckConstraint("state IN ('UNREVIEWED', 'REVIEWED')", name="ck_care_medicine_info_fields_state"),
+    )
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    medicine_id: Mapped[str] = mapped_column(ForeignKey("care_medicines.id"), index=True)
+    field: Mapped[str] = mapped_column(String(24))
+    value: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=None)
+    source_title: Mapped[str] = mapped_column(String(200), default="")
+    source_url: Mapped[str] = mapped_column(String(2000), default="")
+    state: Mapped[str] = mapped_column(String(12), default="UNREVIEWED", index=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String, nullable=True, default=None)   # a pharmacist's account id
+    reviewed_on: Mapped[date | None] = mapped_column(Date, nullable=True, default=None)
+    reviewed_at: Mapped[float] = mapped_column(Float, default=0.0)
+    reviewed_hash: Mapped[str] = mapped_column(String(64), default="")
+    import_id: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
+    updated_by: Mapped[str] = mapped_column(String, default="")
+    updated_at: Mapped[float] = mapped_column(Float, default=0.0)
+
+
+class MedicineInfoEvent(Base):
+    """Append-only trail of medicine-information changes (ids and hashes only, no text)."""
+    __tablename__ = "care_medicine_info_events"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    medicine_id: Mapped[str] = mapped_column(ForeignKey("care_medicines.id"), index=True)
+    field: Mapped[str] = mapped_column(String(24), default="")
+    action: Mapped[str] = mapped_column(String(24))                 # IMPORTED | EDITED | REVIEWED | REVIEW_WITHDRAWN
+    actor_id: Mapped[str] = mapped_column(String, default="")
+    actor_role: Mapped[str] = mapped_column(String(24), default="")
+    value_hash: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[float] = mapped_column(Float, index=True)
+
+
+class MedicineInfoImport(Base):
+    """One CSV import from a licensed dataset. Everything it brings in lands UNREVIEWED."""
+    __tablename__ = "care_medicine_info_imports"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    filename: Mapped[str] = mapped_column(String(200), default="")
+    dataset: Mapped[str] = mapped_column(String(200))
+    licence: Mapped[str] = mapped_column(String(300))
+    source_url: Mapped[str] = mapped_column(String(2000), default="")
+    rows_total: Mapped[int] = mapped_column(Integer, default=0)
+    rows_created: Mapped[int] = mapped_column(Integer, default=0)
+    rows_matched: Mapped[int] = mapped_column(Integer, default=0)
+    rows_rejected: Mapped[int] = mapped_column(Integer, default=0)
+    errors: Mapped[list] = mapped_column(JSON, default=list)
+    created_by: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[float] = mapped_column(Float, default=0.0)
+
+
 class Order(Base):
     __tablename__ = "care_orders"
     __table_args__ = (UniqueConstraint("account_id", "idempotency_key"),)
@@ -454,6 +527,10 @@ class PaymentIntent(Base):
     sent to the provider (Rule L).
     """
     __tablename__ = "care_payment_intents"
+    # One payment per checkout attempt: the client's Idempotency-Key, unique per payable
+    # (NULL when none was sent; NULLs never collide). Live-run audit #9.
+    __table_args__ = (UniqueConstraint("payable_kind", "payable_id", "idempotency_key",
+                                       name="uq_care_payment_intents_payable_key"),)
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     payable_kind: Mapped[str] = mapped_column(String(24))
     payable_id: Mapped[str] = mapped_column(String(64), index=True)
@@ -468,6 +545,7 @@ class PaymentIntent(Base):
     expires_at: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[float] = mapped_column(Float)
     updated_at: Mapped[float] = mapped_column(Float)
+    idempotency_key: Mapped[str | None] = mapped_column(String(80), nullable=True, default=None)
 
 
 class DispenseQuote(Base):
@@ -1180,6 +1258,9 @@ class BloodSOSRequest(Base):
     hospital_location: Mapped[str] = mapped_column(String(200))
     urgency: Mapped[str] = mapped_column(String(20), default="CRITICAL")
     matching_donors_count: Mapped[int] = mapped_column(Integer, default=0)
+    # The campus the broadcast went to ("" = every campus, super admin only). Also
+    # what the per-campus rate limit counts (audit H1).
+    campus: Mapped[str] = mapped_column(String(160), default="", server_default="", index=True)
     status: Mapped[str] = mapped_column(String(24), default="QUEUED")
     created_at: Mapped[float] = mapped_column(Float, default=0.0)
 class CrisisEvent(Base):
@@ -1651,6 +1732,57 @@ class ConsentRecord(Base):
     language: Mapped[str] = mapped_column(String(5), default="en")
     recorded_at: Mapped[float] = mapped_column(Float, index=True)
     withdrawn_at: Mapped[float] = mapped_column(Float, default=0.0)
+    # Sign-up rows only: the privacy notice and terms versions shown on the
+    # consent screen (care_legal_documents), or "unpublished" when none was
+    # published then. "" on optional-purpose rows and on rows from before this.
+    notice_version: Mapped[str] = mapped_column(String(40), default="", server_default="")
+    terms_version: Mapped[str] = mapped_column(String(40), default="", server_default="")
+
+
+LEGAL_DOCUMENT_KINDS = ("PRIVACY_NOTICE", "TERMS", "GRIEVANCE_OFFICER")
+LEGAL_DOCUMENT_STATUSES = ("DRAFT", "PUBLISHED", "RETIRED")
+
+
+class LegalDocument(Base):
+    """A version of the privacy notice, the terms or the grievance officer details.
+
+    Written by a super admin from the text legal supplies (services/legal_documents.py);
+    nothing in the code authors it. A draft can be edited; publishing freezes it and
+    retires the version it replaces, so every sign-up record can name the exact text
+    it was shown. Platform plane: legal text, no person's data.
+    """
+    __tablename__ = "care_legal_documents"
+    __table_args__ = (
+        UniqueConstraint("kind", "version", name="uq_care_legal_documents_kind_version"),
+        CheckConstraint("kind IN ('PRIVACY_NOTICE', 'TERMS', 'GRIEVANCE_OFFICER')", name="ck_care_legal_documents_kind"),
+        CheckConstraint("status IN ('DRAFT', 'PUBLISHED', 'RETIRED')", name="ck_care_legal_documents_status"),
+    )
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(24), index=True)
+    version: Mapped[str] = mapped_column(String(40))
+    title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(12), default="DRAFT")
+    created_by: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[float] = mapped_column(Float)
+    updated_at: Mapped[float] = mapped_column(Float)
+    published_by: Mapped[str] = mapped_column(String(64), default="", server_default="")
+    published_at: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+
+
+class NamedSuperAdmin(Base):
+    """A super admin who is one named person, not the shared team account (audit H3).
+
+    Created only by another super admin (services/named_super_admins.py). The account
+    must use an authenticator whatever the 2FA policy says; ``totp_signed_in_at`` is the
+    first sign-in that passed the authenticator step, which the guided retirement of
+    the shared super admin waits for. Platform plane: no grant to either group role.
+    """
+    __tablename__ = "care_named_super_admins"
+    account_id: Mapped[str] = mapped_column(ForeignKey("care_accounts.id"), primary_key=True)
+    created_by: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[float] = mapped_column(Float)
+    totp_signed_in_at: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
 
 
 class DPDPConsentPolicyVersion(Base):
@@ -1766,3 +1898,73 @@ def _history_is_append_only(mapper, connection, target):
 
 event.listen(SettingOverrideHistory, "before_update", _history_is_append_only)
 event.listen(SettingOverrideHistory, "before_delete", _history_is_append_only)
+
+
+class Post(Base):
+    """A News or Blog post (the newsroom), written by the team in one of the SK templates.
+
+    Platform plane: public editorial content that never names or describes a
+    student (services/newsroom.py refuses nothing about a person because nothing
+    about a person is ever read into it). ``template`` fixes the layout, the
+    cover and the body blocks allowed; ``section`` follows from it (blog or news).
+
+    A post is public only while ``status`` is PUBLISHED, or SCHEDULED with
+    ``publish_at`` in the past. A HEALTH_TIP is public only while a clinician's
+    approval (``reviewed_hash``) still equals the hash of its current content: any
+    edit after the review takes it off the site until it is reviewed again.
+    ``sample`` rows exist only in development and test builds (services/demo_seed.py).
+    """
+    __tablename__ = "care_posts"
+    __table_args__ = (
+        CheckConstraint("status IN ('DRAFT', 'SCHEDULED', 'PUBLISHED', 'UNPUBLISHED')", name="ck_care_posts_status"),
+        CheckConstraint("section IN ('BLOG', 'NEWS')", name="ck_care_posts_section"),
+    )
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    template: Mapped[str] = mapped_column(String(20), index=True)   # HEALTH_TIP | CAMPUS_NEWS | PRODUCT_UPDATE | PRESS_RELEASE | STORY
+    section: Mapped[str] = mapped_column(String(8), index=True)     # BLOG | NEWS, from the template
+    title: Mapped[str] = mapped_column(String(160))
+    summary: Mapped[str] = mapped_column(String(300), default="")
+    body: Mapped[list] = mapped_column(JSON, default=list)          # the template's blocks (services/newsroom.py)
+    tags: Mapped[list] = mapped_column(JSON, default=list)
+    cover_alt: Mapped[str] = mapped_column(String(200), default="")
+    cover_art: Mapped[str] = mapped_column(String(40), default="")  # one of the template's kit art names, or ""
+    seo_title: Mapped[str] = mapped_column(String(70), default="")
+    seo_description: Mapped[str] = mapped_column(String(160), default="")
+    featured: Mapped[bool] = mapped_column(Boolean, default=False)
+    author_id: Mapped[str] = mapped_column(String, default="")       # a team member's account
+    status: Mapped[str] = mapped_column(String(12), default="DRAFT", index=True)
+    publish_at: Mapped[float] = mapped_column(Float, default=0.0, index=True)
+    first_published_at: Mapped[float] = mapped_column(Float, default=0.0)
+    reviewed_by: Mapped[str | None] = mapped_column(String, nullable=True, default=None)  # an NMC_DOCTOR account id
+    reviewed_at: Mapped[float] = mapped_column(Float, default=0.0)
+    reviewed_hash: Mapped[str] = mapped_column(String(64), default="")
+    sample: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[float] = mapped_column(Float, default=0.0)
+    updated_by: Mapped[str] = mapped_column(String, default="")
+    updated_at: Mapped[float] = mapped_column(Float, default=0.0)
+
+
+class PostEvent(Base):
+    """Append-only trail of a post: created, edited, reviewed, published, … (ids and hashes, no text)."""
+    __tablename__ = "care_post_events"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    post_id: Mapped[str] = mapped_column(String, index=True)
+    action: Mapped[str] = mapped_column(String(24))
+    actor_id: Mapped[str] = mapped_column(String, default="")
+    actor_role: Mapped[str] = mapped_column(String(20), default="")
+    content_hash: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[float] = mapped_column(Float, default=0.0, index=True)
+
+
+class PostImage(Base):
+    """An image placed in a post's body, virus-scanned before it was stored (like care_catalog_images)."""
+    __tablename__ = "care_post_images"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    post_id: Mapped[str] = mapped_column(String, index=True)
+    filename: Mapped[str] = mapped_column(String(200), default="")
+    mime_type: Mapped[str] = mapped_column(String(40))
+    content: Mapped[bytes] = mapped_column(LargeBinary)
+    uploaded_by: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[float] = mapped_column(Float, default=0.0)

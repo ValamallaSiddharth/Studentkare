@@ -62,6 +62,8 @@ function RouterShell() {
   useEffect(() => {
     if (previousPath.current !== location.pathname) {
       previousPath.current = location.pathname;
+      // Focus moves for screen readers; the ring around the whole page is only for the skip link (workflows.css).
+      mainContent.current?.setAttribute('data-route-focus', '');
       mainContent.current?.focus({ preventScroll: true });
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
@@ -135,6 +137,7 @@ function RouterShell() {
       {!isPublicView && <AmbientBackground />}
       <a className="wf-skip-link" href="#main-content" onClick={event => {
         event.preventDefault();
+        mainContent.current?.removeAttribute('data-route-focus');
         mainContent.current?.focus({ preventScroll: true });
         mainContent.current?.scrollIntoView({ behavior: 'instant', block: 'start' });
       }}>{t('common.skipToContent')}</a>
@@ -179,7 +182,7 @@ export function drawsStudentPhoneFrame(pathname: string, role: string | null, ph
  */
 export const STUDENT_PHONE_SHOP_PATHS: readonly string[] = ['/shop', '/checkout', '/lab-tests', '/care'];
 /** Pages a signed-in student gets in the student web shell (top nav with Alerts and SOS) above phone width. */
-export const STUDENT_SHELL_COMMERCE_PATHS: readonly string[] = ['/shop', '/checkout', '/lab-tests'];
+export const STUDENT_SHELL_COMMERCE_PATHS: readonly string[] = ['/shop', '/checkout', '/lab-tests', '/care'];
 
 /** A signed-in student's page above phone width draws the student web shell (its own Alerts and SOS), not the app bar. */
 export function drawsStudentWebShell(pathname: string, role: string | null, phoneWidth: boolean): boolean {
@@ -197,8 +200,13 @@ export function consoleHasOwnChrome(pathname: string, role: string | null): bool
   // The passcode page is drawn in the sign-in frame: its own logo, language switch and emergency strip.
   if (pathname === '/set-passcode') return true;
   if (opensInCampusConsole(pathname, role)) return true;
+  // These roles' pages all open in their own console (WorkspaceScreen, live-run audit #8).
+  if (role !== null && STAFF_SHELL_ROLES.has(role)) return true;
   return role === 'NMC_DOCTOR' && isClinicianConsolePath(pathname);
 }
+
+/** Roles whose every workspace page is drawn inside their own console shell. */
+const STAFF_SHELL_ROLES: ReadonlySet<string> = new Set(['COUNSELLOR', 'LAB_COLLECTOR', 'SUPER_ADMIN', 'VENDOR']);
 
 /** One key each for the /admin area, the partner, clinician and campus consoles, so no shell is remounted between sections. */
 export function pageTransitionKey(pathname: string, role: string | null = null): string {

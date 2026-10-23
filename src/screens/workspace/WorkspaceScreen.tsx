@@ -59,6 +59,7 @@ import { RewardsRoute } from '@/features/rewards/views/RewardsView';
 import { LeaveCampusRoute } from '@/features/campus/views/LeaveCampusView';
 import { CareNavigatorPanel } from './CareNavigatorPanel';
 import { EncounterNotesPanel } from './EncounterNotesPanel';
+import { CounsellorShell } from './CounsellorShell';
 import { SuperAdminShell } from './admin/SuperAdminShell';
 import { superAdminScreen } from './admin/SuperAdminScreens';
 import { VendorShell } from '../vendor/VendorShell';
@@ -74,6 +75,8 @@ import { SearchPage, studentPhoneBoard } from '@/features/phoneKit/studentPhoneB
 import { EmergencyHelplinesDialog } from '../../components/interface/InterfaceBar';
 import { NotificationCenterModal } from '../../components/health/NotificationCenterModal';
 import { AyushWidget, ayushWidgetShownOn } from '@/features/ayush/AyushWidget';
+import { PartnerPage } from '@/features/partner/PartnerPage';
+import '@/design-system/design-system.css';
 
 const M2TrendsRoute = lazy(() => import('@/features/labResults/views/M2TrendsRoute').then(module => ({ default: module.M2TrendsRoute })));
 const M2ReportUploadRoute = lazy(() => import('@/features/labResults/views/M2ReportUploadRoute').then(module => ({ default: module.M2ReportUploadRoute })));
@@ -81,7 +84,14 @@ const M2RemindersRoute = lazy(() => import('@/features/reminders/views/M2Reminde
 const M2WaterRoute = lazy(() => import('@/features/reminders/views/M2WaterRoute').then(module => ({ default: module.M2WaterRoute })));
 const M2StepsRoute = lazy(() => import('@/features/steps/views/M2StepsRoute').then(module => ({ default: module.M2StepsRoute })));
 const M2LabsRoute = lazy(() => import('@/features/m2store/views/M2LabsRoute').then(module => ({ default: module.M2LabsRoute })));
+const M2ConsultsRoute = lazy(() => import('@/features/m2store/views/M2ConsultsRoute').then(module => ({ default: module.M2ConsultsRoute })));
+const M2InsightsRoute = lazy(() => import('@/features/insights/views/M2InsightsRoute').then(module => ({ default: module.M2InsightsRoute })));
+const PrivacyConsentView = lazy(() => import('@/features/privacy/PrivacyConsentView').then(module => ({ default: module.PrivacyConsentView })));
+const DataRightsView = lazy(() => import('@/features/privacy/DataRightsView').then(module => ({ default: module.DataRightsView })));
+const MedicineInfoRoute = lazy(() => import('@/features/medicineInfo/views/MedicineInfoRoute').then(module => ({ default: module.MedicineInfoRoute })));
+const PharmacyMedicineInfoScreen = lazy(() => import('@/features/medicineInfo/admin/MedicineInfoReviewView').then(module => ({ default: module.PharmacyMedicineInfoScreen })));
 const CareDirectoryRoute = lazy(() => import('@/features/careDirectory/views/CareDirectoryRoute').then(module => ({ default: module.CareDirectoryRoute })));
+const M2WhatsNewRoute = lazy(() => import('@/features/newsroom/views/M2WhatsNewRoute').then(module => ({ default: module.M2WhatsNewRoute })));
 const WebEmergencyCard = lazy(() => import('@/features/emergency/views/WebEmergencyCard').then(module => ({ default: module.WebEmergencyCard })));
 const IdentityVerifyView = lazy(() => import('@/features/auth/views/IdentityVerifyView').then(module => ({ default: module.IdentityVerifyView })));
 const WebPass = lazy(() => import('@/features/digital_id/views/WebPass').then(module => ({ default: module.WebPass })));
@@ -148,6 +158,9 @@ const WebDeleteAccountRoute = lazy(() => import('@/features/studentweb/views/t1/
 function vendorPageFor(route: RoutePath, role: AccountRole | null, onNavigate: (target: string) => void, onLogout: () => Promise<void>, onSwitchRole: (role: 'student' | 'admin' | 'vendor') => void): React.ReactNode {
   const props = { onNavigate, onLogout };
   const labStaff = role === 'VENDOR' || role === 'SUPER_ADMIN';
+  // A lab's collector signs in to the staff app's phone boards only (live-run audit #6).
+  const collector = role === 'LAB_COLLECTOR';
+  if (collector && route !== 'staff-collect' && route !== 'staff-verify' && route !== 'staff-handover') return null;
   switch (route) {
     case 'vendor': return <VendorHomeScreen {...props} onSwitchRole={onSwitchRole} />;
     // /verify is the student identity page; the partner scanner lives at /scan-verify.
@@ -162,7 +175,7 @@ function vendorPageFor(route: RoutePath, role: AccountRole | null, onNavigate: (
     // The staff app's phone boards (WP-15): full screen, outside the console shell.
     case 'staff-verify': return <StaffScanVerifyScreen onNavigate={(target) => onNavigate(target)} />;
     case 'staff-handover': return <StaffHandoverScreen onNavigate={(target) => onNavigate(target)} />;
-    case 'staff-collect': return labStaff ? <StaffCollectScreen onNavigate={(target) => onNavigate(target)} /> : null;
+    case 'staff-collect': return labStaff || collector ? <StaffCollectScreen onNavigate={(target) => onNavigate(target)} /> : null;
     // The live lab desk (GET /work/lab-orders): sample custody through to filing the report for a doctor.
     case 'lab-queue': case 'vendor-lab-queue': return <LabSampleToReportScreen onNavigate={onNavigate} />;
     // Release results (WP-15): where each filed report has got to. The doctor releases.
@@ -173,6 +186,8 @@ function vendorPageFor(route: RoutePath, role: AccountRole | null, onNavigate: (
     case 'console': case 'vendor-console': case 'performance': return <VendorConsoleScreen {...props} />;
     case 'settlement': case 'settlements': case 'vendor-settlement': return <VendorSettlementScreen {...props} />;
     case 'rx-review': case 'vendor-rx-review': return <VendorRxReviewScreen {...props} />;
+    // Medicine information review: pharmacists approve (plan tier1-medicine-info-2026-10-22); super admins see it too.
+    case 'medicine-info-review': return <PharmacyMedicineInfoScreen />;
     case 'staff': case 'partner-staff': case 'vendor-staff': case 'staff-roles': return <PartnerStaffScreen {...props} />;
     case 'orders': return role === 'VENDOR' ? <VendorOrdersScreen {...props} /> : null;
     case 'admin/catalog': return role === 'VENDOR' ? <VendorCatalogueScreen {...props} /> : null;
@@ -337,8 +352,16 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
       case 'delete-account': return <WebDeleteAccountRoute />;
       // Mobile 2.0 Lab tests: the student shell had no lab tests page (its nav item had no route).
       case 'lab-tests': return <M2LabsRoute />;
+      // Mobile 2.0 Doctor consults: the shell's "Doctors" link stays in the shell (it used to open the public marketplace).
+      case 'care': return <M2ConsultsRoute />;
+      // Mobile 2.0 My health (Tier 1 plan: M2Insights replaces YourCare's overview), in the page column like Trends.
+      case 'your-care': return <M2InsightsRoute />;
       // Find care near you (WebFindCare above phone width): the same board, two columns.
       case 'find-care': return <CareDirectoryRoute wide />;
+      // What's new (product update posts), from Profile: the same board in the page column.
+      case 'whats-new': return <M2WhatsNewRoute wide />;
+      // Medicine information above phone width: the same screen, one wider column.
+      case 'medicine-info': return <MedicineInfoRoute wide />;
       default: return null;
     }
   };
@@ -390,6 +413,9 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
       case 'delete-account': return <DeleteAccountRoute links={{ exportData: () => navigate('data-export'), crisis: () => navigate('crisis') }} />;
       // WP-06 boards with no desktop twin yet: the phone board in the page column.
       case 'ice-contacts': case 'consent': case 'care-circle': return safetyBoardFor(route);
+      // Privacy & consent and data rights (audit H2): one page at every width.
+      case 'privacy-consent': return <PrivacyConsentView />;
+      case 'data-rights': return <DataRightsView />;
       case 'prescriptions': return <MyPrescriptionsPanel />;
       case 'visit-summaries': return <VisitSummaryRoute links={{ openPrescriptions: () => navigate('prescriptions'), openAppointments: () => navigate('appointments') }} />;
       case 'ayush': return <AgentAyushPanel />;
@@ -407,7 +433,7 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
     }
   };
 
-  const sidebar = <aside id="workspace-sidebar" className={`wf-sidebar ${mobileMenu ? 'is-open' : ''}`}><button className="shop-logo-button wf-sidebar-brand" onClick={() => open('shop')} aria-label={t('ws.openShop')}><StudentKareLogo size={31} showStrapline={false} /></button><div className="wf-account-summary"><span>{user.fullName.charAt(0).toUpperCase()}</span><div><strong>{user.fullName}</strong><small>{roleLabel}</small></div></div><nav aria-label={t('ws.nav')}>{links.map(({ path, label, icon: Icon }) => <button key={path} aria-current={route === path ? 'page' : undefined} onClick={() => open(path)}><Icon size={18} aria-hidden="true" />{t(label)}</button>)}</nav>{user.role !== 'STUDENT' && <button className="wf-sidebar-secondary" onClick={() => open(staffHome ? 'health' : homeForRole(user.role))}><Building2 size={16} aria-hidden="true" />{staffHome ? t('ws.personal') : t('ws.staff')}</button>}<button className="wf-sidebar-secondary" onClick={() => open('shop')}><ArrowLeft size={16} aria-hidden="true" />{t('ws.shop')}</button><div className="wf-sidebar-bottom"><FormError message={mutation.error} /><button disabled={mutation.busy} onClick={() => setConfirmSignOut(true)}><LogOut size={16} aria-hidden="true" />{mutation.busy ? t('ws.signingOut') : t('home.signOut')}</button></div></aside>;
+  const sidebar = <aside id="workspace-sidebar" className={`wf-sidebar ${mobileMenu ? 'is-open' : ''}`}><button className="shop-logo-button wf-sidebar-brand" onClick={() => open('shop')}><StudentKareLogo size={31} showStrapline={false} /><span className="sk-visually-hidden">{t('ws.openShop')}</span></button><div className="wf-account-summary"><span>{user.fullName.charAt(0).toUpperCase()}</span><div><strong>{user.fullName}</strong><small>{roleLabel}</small></div></div><nav aria-label={t('ws.nav')}>{links.map(({ path, label, icon: Icon }) => <button key={path} aria-current={route === path ? 'page' : undefined} onClick={() => open(path)}><Icon size={18} aria-hidden="true" />{t(label)}</button>)}</nav>{user.role !== 'STUDENT' && <button className="wf-sidebar-secondary" onClick={() => open(staffHome ? 'health' : homeForRole(user.role))}><Building2 size={16} aria-hidden="true" />{staffHome ? t('ws.personal') : t('ws.staff')}</button>}<button className="wf-sidebar-secondary" onClick={() => open('shop')}><ArrowLeft size={16} aria-hidden="true" />{t('ws.shop')}</button><div className="wf-sidebar-bottom"><FormError message={mutation.error} /><button disabled={mutation.busy} onClick={() => setConfirmSignOut(true)}><LogOut size={16} aria-hidden="true" />{mutation.busy ? t('ws.signingOut') : t('home.signOut')}</button></div></aside>;
 
   // At phone width a student gets the phone boards' frame (phone header and tab bar)
   // instead of this desktop shell; the sidebar becomes the header's More panel.
@@ -467,7 +493,28 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
     </>;
   }
 
-  if (admin) {
+  // Staff pages stay in their own console on every page, never the student layout and its
+  // student-only data (live-run audit #8).
+  if (user.role === 'LAB_COLLECTOR') return <Navigate to={`/${homeForRole(user.role)}`} replace />;
+  if (user.role === 'COUNSELLOR') {
+    return <>
+      <CounsellorShell route={route} onNavigate={open} onSignOut={() => setConfirmSignOut(true)} signingOut={mutation.busy} signOutError={mutation.error}>
+        <Suspense fallback={<ScreenLoading />}><PageTransition key={route}>{content()}</PageTransition></Suspense>
+      </CounsellorShell>
+      {signOutDialog}
+    </>;
+  }
+  if (user.role === 'VENDOR') {
+    return <>
+      <VendorShell route={route} role={user.role} partnerKind={effectivePartnerKind} assignedPartnerKind={partnerKindOf(user)} onNavigate={navigate} accountName={partnerDisplayName(user)} onSignOut={() => setConfirmSignOut(true)} signingOut={mutation.busy} signOutError={mutation.error}>
+        {/* Partner pages render their own <main>; a page from outside the console gets the same frame. */}
+        <PartnerPage><Suspense fallback={<ScreenLoading />}><PageTransition key={route}>{content()}</PageTransition></Suspense></PartnerPage>
+      </VendorShell>
+      {signOutDialog}
+    </>;
+  }
+
+  if (admin || user.role === 'SUPER_ADMIN') {
     return <>
       <SuperAdminShell route={route} role={user.role} onNavigate={open} onSignOut={() => setConfirmSignOut(true)} signingOut={mutation.busy} signOutError={mutation.error}>
         <Suspense fallback={<ScreenLoading />}><PageTransition key={route}>{content()}</PageTransition></Suspense>

@@ -22,11 +22,13 @@ import { landingHi } from './areas/landing';
 import { launchHi } from './areas/launch';
 import { m2remindersHi } from './areas/m2reminders';
 import { m2valuesHi } from './areas/m2values';
+import { medicineInfoHi } from './areas/medicineInfo';
 import { memberHi } from './areas/member';
 import { mobile2HealthHi } from './areas/mobile2health';
 import { mobile2Hi } from './areas/mobile2';
 import { mobile2OrdersHi } from './areas/mobile2Orders';
 import { mobile2WebHi } from './areas/mobile2Web';
+import { newsroomHi } from './areas/newsroom';
 import { onboardHi } from './areas/onboard';
 import { partnerConsoleHi } from './areas/partnerConsole';
 import { partnerHi } from './areas/partner';
@@ -34,6 +36,7 @@ import { partnerWorkHi } from './areas/partnerWork';
 import { payHi } from './areas/pay';
 import { phoneboardsHi } from './areas/phoneboards';
 import { phonestoreHi } from './areas/phonestore';
+import { privacyHi } from './areas/privacy';
 import { rewardsHi } from './areas/rewards';
 import { safetyHi } from './areas/safety';
 import { shopwebHi } from './areas/shopweb';
@@ -78,11 +81,13 @@ export const areasHi = {
   ...launchHi,
   ...m2remindersHi,
   ...m2valuesHi,
+  ...medicineInfoHi,
   ...memberHi,
   ...mobile2HealthHi,
   ...mobile2Hi,
   ...mobile2OrdersHi,
   ...mobile2WebHi,
+  ...newsroomHi,
   ...onboardHi,
   ...partnerConsoleHi,
   ...partnerHi,
@@ -90,6 +95,7 @@ export const areasHi = {
   ...payHi,
   ...phoneboardsHi,
   ...phonestoreHi,
+  ...privacyHi,
   ...rewardsHi,
   ...safetyHi,
   ...shopwebHi,

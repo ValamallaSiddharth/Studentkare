@@ -7,6 +7,7 @@ import type { Lang, MessageKey } from '@/i18n';
 import { publicHomeUrl } from '@/core/env';
 import { AuthHeroSlides, AuthSlideStrip } from './AuthHeroSlides';
 import './sign-in-frame.css';
+import '@/design-system/design-system.css';
 
 /** The board's short labels (EN · తె · हि); the full name is the accessible label. Never translated. */
 const LANGS: readonly { code: Lang; short: string }[] = [
@@ -29,7 +30,8 @@ export function LanguageSwitch({ onNavy = false }: { onNavy?: boolean }): React.
           key={code}
           type="button"
           lang={code}
-          aria-label={LANGUAGE_NAMES[code]}
+          // Starts with what it shows ("EN English"), so voice control can say it (live-run audit #10).
+          aria-label={`${short} ${LANGUAGE_NAMES[code]}`}
           aria-pressed={lang === code}
           onClick={() => setLang(code)}
         >
@@ -58,8 +60,10 @@ export function Wordmark({ onNavy = false }: { onNavy?: boolean }): React.ReactE
 export function BrandHomeLink({ onNavy = false }: { onNavy?: boolean }): React.ReactElement {
   const t = useT();
   return (
-    <a className="sk-signin__home" href={publicHomeUrl()} aria-label={t('landing.site.home')} data-testid="auth-logo-home">
+    <a className="sk-signin__home" href={publicHomeUrl()} data-testid="auth-logo-home">
       <Wordmark onNavy={onNavy} />
+      {/* Named by the wordmark it shows (label-in-name), then where it goes. */}
+      <span className="sk-visually-hidden">{t('landing.site.home')}</span>
     </a>
   );
 }

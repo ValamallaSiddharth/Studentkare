@@ -22,11 +22,13 @@ import { landingEn } from './areas/landing';
 import { launchEn } from './areas/launch';
 import { m2remindersEn } from './areas/m2reminders';
 import { m2valuesEn } from './areas/m2values';
+import { medicineInfoEn } from './areas/medicineInfo';
 import { memberEn } from './areas/member';
 import { mobile2En } from './areas/mobile2';
 import { mobile2HealthEn } from './areas/mobile2health';
 import { mobile2OrdersEn } from './areas/mobile2Orders';
 import { mobile2WebEn } from './areas/mobile2Web';
+import { newsroomEn } from './areas/newsroom';
 import { onboardEn } from './areas/onboard';
 import { partnerConsoleEn } from './areas/partnerConsole';
 import { partnerEn } from './areas/partner';
@@ -34,6 +36,7 @@ import { partnerWorkEn } from './areas/partnerWork';
 import { payEn } from './areas/pay';
 import { phoneboardsEn } from './areas/phoneboards';
 import { phonestoreEn } from './areas/phonestore';
+import { privacyEn } from './areas/privacy';
 import { rewardsEn } from './areas/rewards';
 import { safetyEn } from './areas/safety';
 import { shopwebEn } from './areas/shopweb';
@@ -78,11 +81,13 @@ export const areasEn = {
   ...launchEn,
   ...m2remindersEn,
   ...m2valuesEn,
+  ...medicineInfoEn,
   ...memberEn,
   ...mobile2En,
   ...mobile2HealthEn,
   ...mobile2OrdersEn,
   ...mobile2WebEn,
+  ...newsroomEn,
   ...onboardEn,
   ...partnerConsoleEn,
   ...partnerEn,
@@ -90,6 +95,7 @@ export const areasEn = {
   ...payEn,
   ...phoneboardsEn,
   ...phonestoreEn,
+  ...privacyEn,
   ...rewardsEn,
   ...safetyEn,
   ...shopwebEn,

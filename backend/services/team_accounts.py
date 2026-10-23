@@ -266,7 +266,8 @@ def create_missing(db: DBSession, actor_id: str = CLI_ACTOR) -> list[CreateResul
         if account is None:
             account = M.Account(id=spec.account_id, identifier=spec.identifier, channel="EMAIL",
                                 full_name=spec.full_name, role=spec.role, active=True, profile=spec.profile,
-                                created_at=now, partner_kind=spec.partner_kind, is_team_account=True)
+                                created_at=now, partner_kind=spec.partner_kind, is_team_account=True,
+                                staff_campus=spec.profile.get("university", ""))
             db.add(account)
             db.flush()
             save_contact(db, account.id, "EMAIL", spec.identifier, verified=True)
@@ -274,6 +275,9 @@ def create_missing(db: DBSession, actor_id: str = CLI_ACTOR) -> list[CreateResul
             audit(db, actor_id, "TEAM_ACCOUNT_CREATED", account.id)
             results.append(CreateResult(spec.identifier, spec.role, spec.partner_kind, pin, "created"))
             continue
+        # Team staff stay on the team campus, whatever happened before (audit C1).
+        if account.staff_campus != spec.profile.get("university", ""):
+            account.staff_campus = spec.profile.get("university", "")
         if db.get(M.StaffPinCredential, account.id) is None:
             pin = _set_pin(db, account, now)
             audit(db, actor_id, "TEAM_ACCOUNT_PIN_SET", account.id)
@@ -291,12 +295,28 @@ def end_sessions(db: DBSession, account_id: str, keep_token_hash: str = "") -> i
     return db.execute(statement).rowcount or 0
 
 
+SUPERADMIN_RETIRED = "TEAM_SUPERADMIN_RETIRED"
+
+
+class RetiredAccount(Exception):
+    """The shared super admin was retired for named super admins and can't be handed out again."""
+
+
+def is_retired(db: DBSession, account: M.Account) -> bool:
+    """True once the guided retirement (services/named_super_admins.py) disabled this account."""
+    return db.scalar(select(M.WorkflowAudit.id).where(M.WorkflowAudit.action == SUPERADMIN_RETIRED,
+                                                      M.WorkflowAudit.resource_id == account.id).limit(1)) is not None
+
+
 def rotate(db: DBSession, account: M.Account, actor_id: str, keep_token_hash: str = "") -> str:
     """A new PIN (returned once), the lock cleared, every other session of the account ended.
 
     Rotating also turns a disabled team account back on: issuing a new PIN is the
-    deliberate act of handing the account out again.
+    deliberate act of handing the account out again. Never for a retired shared
+    super admin (audit H3): that would undo the retirement.
     """
+    if is_retired(db, account):
+        raise RetiredAccount(account.id)
     pin = _set_pin(db, account, time.time())
     account.active = True
     end_sessions(db, account.id, keep_token_hash)
@@ -359,7 +379,7 @@ def account_row(db: DBSession, account: M.Account, now: float, viewer_id: str = 
     return {
         "id": account.id, "identifier": account.identifier, "fullName": account.full_name, "role": account.role,
         "partnerKind": partner_kind_of(account), "active": account.active is True,
-        "scope": profile.get("university") or profile.get("organisation") or "",
+        "scope": account.staff_campus or profile.get("organisation") or "",
         "hasPin": credential is not None,
         "locked": is_locked(credential, now),
         "lockedUntil": credential.locked_until if is_locked(credential, now) else None,
@@ -369,6 +389,7 @@ def account_row(db: DBSession, account: M.Account, now: float, viewer_id: str = 
         "lastSignInAt": last_sign_in or None,
         "rotatedAt": (credential.rotated_at or None) if credential else None,
         "isSelf": account.id == viewer_id,
+        "retired": account.role == "SUPER_ADMIN" and not account.active and is_retired(db, account),
     }
 
 
@@ -503,7 +524,11 @@ def rotate_pin(account_id: str, body: RotateInput, request: Request, response: R
             db.commit()
             raise HTTPException(403, {"code": ROTATE_SELF_REFUSED, "message": "Enter your current PIN to change it."})
         keep = digest(request.cookies.get(SESSION_COOKIE, ""))
-    pin = rotate(db, account, user["id"], keep)
+    try:
+        pin = rotate(db, account, user["id"], keep)
+    except RetiredAccount:
+        raise HTTPException(409, {"code": SUPERADMIN_RETIRED,
+                                  "message": "The shared super admin was retired for named super admins and stays off."}) from None
     return {"id": account.id, "identifier": account.identifier, "pin": pin}
 
 

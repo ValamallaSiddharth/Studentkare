@@ -158,7 +158,7 @@ def seed_demo_data(db: Session, include_demo_users: bool = True) -> dict:
     which is what ``seed_catalog_data`` uses to populate a deployed environment.
     """
     now = time.time()
-    created = {"accounts": 0, "catalog": 0, "medicines": 0, "content": 0, "articles": 0}
+    created = {"accounts": 0, "catalog": 0, "medicines": 0, "content": 0, "articles": 0, "posts": 0}
 
     accounts = [
         (DEMO_STUDENT, "Demo Student", "STUDENT", "EMAIL", {"dob": "2000-01-01", "university": "Demo University", "rollNumber": "DEMO-001", "ageVerified": False, "isVerifiedStudent": False}),
@@ -181,6 +181,7 @@ def seed_demo_data(db: Session, include_demo_users: bool = True) -> dict:
             acc_id = f"demo-{role.lower()}" if channel == "EMAIL" else f"demo-{role.lower()}-phone"
             vendor_candidate = M.Account(id=acc_id, identifier=identifier, channel=channel,
                                          full_name=name, role=role, active=True, profile=profile, created_at=now,
+                                         staff_campus=profile.get("university", "") if role in ("CAMPUS_ADMIN", "COUNSELLOR") else "",
                                          # The demo store sells an OTC catalogue, so it gets the pharmacy dashboard.
                                          partner_kind="PHARMACY" if role == "VENDOR" else "")
             db.add(vendor_candidate)
@@ -193,6 +194,15 @@ def seed_demo_data(db: Session, include_demo_users: bool = True) -> dict:
                 vendor = vendor_candidate
         elif identifier == DEMO_VENDOR:
             vendor = existing
+    db.flush()
+    # The demo students signed up like anyone else: their campus request waits in the campus queue.
+    for identifier, _name, role, _channel, profile in accounts:
+        if role != "STUDENT" or not include_demo_users:
+            continue
+        student = db.scalar(select(M.Account).where(M.Account.identifier == identifier))
+        if student is not None and db.get(M.CampusVerification, student.id) is None:
+            db.add(M.CampusVerification(account_id=student.id, university=profile["university"],
+                                        roll_number=profile["rollNumber"], status="PENDING"))
     db.flush()
     # Demo medicine master rows (source DEMO_SEED), before the listings that point at them.
     for medicine_id, name, ingredients, form, pack, manufacturer, schedule, _price, _mrp in DEMO_MEDICINES:
@@ -208,6 +218,9 @@ def seed_demo_data(db: Session, include_demo_users: bool = True) -> dict:
         created["medicines"] += 1
     db.flush()
     lab_owner = None
+    # Consultations are a doctor's (CATALOG_PROVIDER_ROLES): with demo users, the demo doctor
+    # provides them, so a booking reaches a doctor in dev (live-run audit #7).
+    doctor = db.scalar(select(M.Account).where(M.Account.identifier == DEMO_DOCTOR)) if include_demo_users else None
     if include_demo_users:
         lab_owner, created["lab"] = _seed_demo_lab(db, now)
     for entry in DEMO_CATALOG:
@@ -221,6 +234,10 @@ def seed_demo_data(db: Session, include_demo_users: bool = True) -> dict:
             existing_entry.includes = package["includes"]
             existing_entry.fasting_hours = package["fasting_hours"]
             existing_entry.report_hours = package["report_hours"]
+        if existing_entry is not None and doctor is not None and entry["kind"] == "consultation" \
+                and existing_entry.provider_id == vendor.id:
+            # A dev database seeded when the demo vendor held the consults: hand them to the doctor.
+            existing_entry.provider_id = doctor.id
         if existing_entry is None and package:
             db.add(M.CatalogEntry(id=entry["id"], provider_id=lab_owner.id, kind=entry["kind"], name=entry["name"],
                                   brand=DEMO_LAB_BRAND, category=entry["category"], description=entry["description"],
@@ -230,7 +247,8 @@ def seed_demo_data(db: Session, include_demo_users: bool = True) -> dict:
                                   fasting_hours=package["fasting_hours"], report_hours=package["report_hours"]))
             created["catalog"] += 1
         elif existing_entry is None:
-            db.add(M.CatalogEntry(id=entry["id"], provider_id=vendor.id, kind=entry["kind"], name=entry["name"],
+            owner = doctor if doctor is not None and entry["kind"] == "consultation" else vendor
+            db.add(M.CatalogEntry(id=entry["id"], provider_id=owner.id, kind=entry["kind"], name=entry["name"],
                                   brand=entry["brand"], category=entry["category"], description=entry["description"],
                                   pack=entry["pack"], price_paise=entry["price_paise"], mrp_paise=entry.get("mrp_paise", 0), stock=entry["stock"],
                                   active=True, requires_prescription=entry.get("requires_prescription", False),
@@ -239,6 +257,9 @@ def seed_demo_data(db: Session, include_demo_users: bool = True) -> dict:
     if lab_owner is not None:
         db.flush()
         created["lab"]["slots"] = _seed_demo_lab_slots(db, lab_owner, now)
+    if doctor is not None:
+        db.flush()
+        created["consultSlots"] = _seed_demo_consult_slots(db, doctor, now)
 
     content_entries = [
         {"key": "hero", "eyebrow": "YOUR EVERYDAY HEALTH COMPANION", "title": "Care that connects.\nHealth that’s yours.", "body": "Keep your records together, explore listed care services, and follow every request from your own account.", "action": "Open my health workspace", "target": "health", "icon": "heart", "color": "lavender", "sort": 1},
@@ -272,6 +293,11 @@ def seed_demo_data(db: Session, include_demo_users: bool = True) -> dict:
             db.add(M.Article(id=entry["id"], tag=entry["tag"], title=entry["title"], read_time=entry["read_time"],
                              color=entry["color"], body=entry["body"], active=True, sort=0))
             created["articles"] += 1
+
+    # Newsroom samples ("Sample:" titles, a Sample chip on the site): demo builds only, never a deployed catalogue seed.
+    if include_demo_users and demo_accounts_enabled():
+        from services.newsroom_samples import seed_sample_posts
+        created["posts"] = seed_sample_posts(db, now)
 
     db.commit()
     return created
@@ -330,6 +356,37 @@ def _seed_demo_lab_slots(db: Session, owner: M.Account, now: float) -> int:
                 db.add(M.AvailabilitySlot(id=slot_id, provider_id=owner.id, catalog_item_id=item_id,
                                           slot_start=start.isoformat(), slot_end=(start + timedelta(hours=1)).isoformat(),
                                           capacity=4, booked=0, active=True))
+                added += 1
+    return added
+
+
+# The demo doctor's sample consult times (IST): a week ahead, 30 minutes each, one student per slot.
+DEMO_CONSULT_HOURS = (10, 11, 16)
+DEMO_CONSULT_MINUTES = 30
+DEMO_CONSULT_DAYS = 7
+
+
+def _seed_demo_consult_slots(db: Session, doctor: M.Account, now: float) -> int:
+    """Consult slots for the next week on each consultation the demo doctor provides. Dev seed only. Idempotent."""
+    from datetime import datetime, timedelta, timezone
+
+    ist = timezone(timedelta(hours=5, minutes=30))
+    today = datetime.fromtimestamp(now, ist).date()
+    added = 0
+    items = db.scalars(select(M.CatalogEntry).where(M.CatalogEntry.kind == "consultation",
+                                                    M.CatalogEntry.provider_id == doctor.id)).all()
+    for item in items:
+        for day in range(1, DEMO_CONSULT_DAYS + 1):
+            date = today + timedelta(days=day)
+            for hour in DEMO_CONSULT_HOURS:
+                slot_id = f"demo-slot-{item.id}-{date.isoformat()}-{hour:02d}"
+                if db.get(M.AvailabilitySlot, slot_id) is not None:
+                    continue
+                start = datetime(date.year, date.month, date.day, hour, 0, tzinfo=ist)
+                db.add(M.AvailabilitySlot(id=slot_id, provider_id=doctor.id, catalog_item_id=item.id,
+                                          slot_start=start.isoformat(),
+                                          slot_end=(start + timedelta(minutes=DEMO_CONSULT_MINUTES)).isoformat(),
+                                          capacity=1, booked=0, active=True))
                 added += 1
     return added
 

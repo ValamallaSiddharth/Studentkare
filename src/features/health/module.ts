@@ -71,9 +71,9 @@ const workspacePaths: { path: string; access?: (role: AccountRole | null) => boo
   { path: '/vendor-camp-intake', access: hasRole('VENDOR', 'SUPER_ADMIN') },
   { path: '/camp-fast', access: hasRole('VENDOR', 'SUPER_ADMIN') },
   { path: '/lab-reporting', access: hasRole('VENDOR', 'SUPER_ADMIN') },
-  { path: '/staff-verify', access: hasRole('VENDOR', 'SUPER_ADMIN') },
-  { path: '/staff-handover', access: hasRole('VENDOR', 'SUPER_ADMIN') },
-  { path: '/staff-collect', access: hasRole('VENDOR', 'SUPER_ADMIN') },
+  { path: '/staff-verify', access: hasRole('VENDOR', 'SUPER_ADMIN', 'LAB_COLLECTOR') },
+  { path: '/staff-handover', access: hasRole('VENDOR', 'SUPER_ADMIN', 'LAB_COLLECTOR') },
+  { path: '/staff-collect', access: hasRole('VENDOR', 'SUPER_ADMIN', 'LAB_COLLECTOR') },
   { path: '/settlement', access: hasRole('VENDOR', 'SUPER_ADMIN') },
   { path: '/settlements', access: hasRole('VENDOR', 'SUPER_ADMIN') },
   { path: '/vendor-settlement', access: hasRole('VENDOR', 'SUPER_ADMIN') },
@@ -124,8 +124,16 @@ const workspacePaths: { path: string; access?: (role: AccountRole | null) => boo
   { path: '/admin/claims', access: hasRole('SUPER_ADMIN') },
   { path: '/admin/outbox', access: hasRole('SUPER_ADMIN') },
   { path: '/admin/team-accounts', access: hasRole('SUPER_ADMIN') },
+  // Legal documents: the privacy notice, terms and grievance officer, versioned and published (audit H2).
+  { path: '/admin/legal-documents', access: hasRole('SUPER_ADMIN') },
   // Find care near you: the curated directory listings (super admin: every campus).
   { path: '/admin/care-directory', access: hasRole('SUPER_ADMIN') },
+  // Medicine information review: super admins edit and import; pharmacists (partner console) approve.
+  { path: '/admin/medicine-info', access: hasRole('SUPER_ADMIN') },
+  { path: '/medicine-info-review', access: hasRole('VENDOR', 'SUPER_ADMIN') },
+  // Posts (News and Blog): the super admin edits and publishes; clinicians review health tips.
+  { path: '/admin/posts', access: hasRole('SUPER_ADMIN') },
+  { path: '/clinician/post-reviews', access: hasRole('NMC_DOCTOR') },
   { path: '/delete-account', access: hasRole('STUDENT') },
   // The student's Your Care overview (the phone tab), account details and data export.
   { path: '/your-care', access: hasRole('STUDENT') },
@@ -143,6 +151,8 @@ const workspacePaths: { path: string; access?: (role: AccountRole | null) => boo
   { path: '/health/water', access: hasRole('STUDENT') },
   // Steps (Mobile 2.0, Tier 2): the student's own step totals; a browser counts none, typed entry only.
   { path: '/health/steps', access: hasRole('STUDENT') },
+  // What's new (newsroom product update posts), opened from Profile.
+  { path: '/whats-new', access: hasRole('STUDENT') },
   { path: '/vendor', access: hasRole('VENDOR') },
   { path: '/clinician', access: hasRole('NMC_DOCTOR') },
   { path: '/clinician/queue', access: hasRole('NMC_DOCTOR') },
@@ -173,6 +183,9 @@ const workspacePaths: { path: string; access?: (role: AccountRole | null) => boo
   // Tier 1 phone boards (WP-06): emergency contacts, the consent inbox and the care circle.
   { path: '/ice-contacts', access: hasRole('STUDENT') },
   { path: '/consent', access: hasRole('STUDENT') },
+  // Privacy & consent and data rights (audit H2): the student's own consent ledger and rights.
+  { path: '/privacy-consent', access: hasRole('STUDENT') },
+  { path: '/data-rights', access: hasRole('STUDENT') },
   { path: '/care-circle', access: hasRole('STUDENT') },
   { path: '/pass' },
   // Phone search (design page 2: SearchEntry … DoctorResults). The catalogue is public; the boards need a session for booking.

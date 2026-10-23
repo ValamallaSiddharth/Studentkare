@@ -11,7 +11,8 @@ def _staff(factory):
     with factory() as db:
         db.add(M.Account(id="campusadmin", identifier="campus@example.test", channel="EMAIL", full_name="Campus Admin", role="CAMPUS_ADMIN", active=True,
                          # Campus admins act only for their own campus.
-                         profile={"university": "Test University"}, created_at=time.time()))
+                         profile={"university": "Test University"}, created_at=time.time(),
+                         staff_campus="Test University"))
         db.commit()
 
 
@@ -19,9 +20,9 @@ def test_campus_verify_flow(harness):
     client, factory, codes = harness
     user, headers = register(client, codes, "student@example.test")
 
-    # Student submits verification.
+    # Sign-up already asked the campus (live-run audit #4); the student can resubmit.
     status = client.get("/api/campus/verification", headers=headers).json()
-    assert status["status"] == "NOT_SUBMITTED"
+    assert status["status"] == "PENDING"
     sub = client.post("/api/campus/verification", json={"university": "Test University", "rollNumber": "S-42"}, headers=headers).json()
     assert sub["status"] == "PENDING"
 

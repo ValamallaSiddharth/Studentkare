@@ -27,6 +27,7 @@ from services.demo_seed import (
     seed_catalog_data,
     seed_demo_data,
 )
+from services.newsroom_samples import SAMPLES as NEWSROOM_SAMPLES
 from services.workflow_auth import workflow_db
 
 
@@ -58,11 +59,13 @@ def test_seed_is_idempotent_and_marks_samples(harness):
     _, factory, _ = harness
     first = seed(factory)
     lab = first.pop("lab")
-    assert first == {"accounts": 10, "catalog": len(DEMO_CATALOG), "medicines": len(DEMO_MEDICINES), "content": 11, "articles": 3}
+    assert first.pop("consultSlots") > 0   # the demo doctor's consult times (live-run audit #7)
+    assert first == {"accounts": 10, "catalog": len(DEMO_CATALOG), "medicines": len(DEMO_MEDICINES), "content": 11, "articles": 3,
+                     "posts": len(NEWSROOM_SAMPLES)}   # newsroom samples: demo builds only, titled "Sample:"
     # The demo lab: its partner account and two collectors, and a week of slots.
     assert lab["accounts"] == 3 and lab["collectors"] == 2 and lab["slots"] > 0
-    assert seed(factory) == {"accounts": 0, "catalog": 0, "medicines": 0, "content": 0, "articles": 0,
-                             "lab": {"accounts": 0, "collectors": 0, "slots": 0}}
+    assert seed(factory) == {"accounts": 0, "catalog": 0, "medicines": 0, "content": 0, "articles": 0, "posts": 0,
+                             "lab": {"accounts": 0, "collectors": 0, "slots": 0}, "consultSlots": 0}
     with factory() as db:
         roles = {row.identifier: row.role for row in db.scalars(select(M.Account)).all()}
         assert roles[DEMO_STUDENT] == "STUDENT"
@@ -72,6 +75,8 @@ def test_seed_is_idempotent_and_marks_samples(harness):
         assert len(entries) == len(DEMO_CATALOG)
         assert all("Sample development entry" in entry.description for entry in entries)
         assert all(entry.active for entry in entries)
+        posts = db.scalars(select(M.Post)).all()
+        assert posts and all(p.sample and p.title.startswith("Sample:") for p in posts)
 
 
 def test_seed_refused_in_production(harness, monkeypatch):
@@ -137,6 +142,14 @@ def test_seeded_catalog_order_and_vendor_fulfilment(harness):
                               "requestedSlot": ""})
     assert order.status_code == 201, order.text
     assert order.json()["totalPaise"] == 34900
+    # The partner sees it only once it is paid (live-run audit #1): pay on the test gateway.
+    order_id = order.json()["id"]
+    intent = client.post(f"/api/orders/{order_id}/payment", headers=buyer_headers).json()
+    paid = client.post(f"/api/orders/{order_id}/payment/mock-checkout", headers=buyer_headers,
+                       json={"providerOrderId": intent["providerOrderId"], "cardNumber": "4111111111111111"}).json()
+    assert client.post(f"/api/orders/{order_id}/payment/verify", headers=buyer_headers, json={
+        "providerOrderId": paid["providerOrderId"], "providerPaymentId": paid["providerPaymentId"],
+        "signature": paid["signature"]}).json()["paymentStatus"] == "PAID"
     client.post("/api/auth/logout", headers=buyer_headers)
 
     client.post("/api/auth/otp/send", json={"identifier": DEMO_VENDOR, "channel": "EMAIL", "intent": "LOGIN"})

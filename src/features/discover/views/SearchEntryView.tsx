@@ -1,3 +1,4 @@
+import { cardLabel } from '@/design-system/m2';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { observer } from 'mobx-react-lite';
@@ -36,6 +37,19 @@ export const SearchEntryView = observer(function SearchEntryView({ vm, links }: 
             <Icon name="arrow-right" size={18} color={color.action} />
           </Pressable>
         </Rise>
+        {links.openMedicineInfo ? (
+          <Rise index={1}>
+            <Pressable role="link" accessibilityRole="link" {...cardLabel(`${t('mi.entryTitle')}. ${t('mi.entryBody')}`)}
+              onPress={() => links.openMedicineInfo?.()} testID="search-medicine-info" style={({ focused }: Pressed) => [styles.rx, focused ? focusRing : null]}>
+              <IconTile icon="pill" solid size={42} iconSize={20} />
+              <View style={phoneLayout.grow}>
+                <Text style={styles.rxTitle}>{t('mi.entryTitle')}</Text>
+                <Text style={styles.rxBody}>{t('mi.entryBody')}</Text>
+              </View>
+              <Icon name="arrow-right" size={18} color={color.action} />
+            </Pressable>
+          </Rise>
+        ) : null}
 
         {vm.recents.length > 0 ? (
           <View style={styles.section} testID="search-recents">
@@ -63,7 +77,7 @@ export const SearchEntryView = observer(function SearchEntryView({ vm, links }: 
           <View style={styles.grid}>
             {SEARCH_CATEGORIES.map((cat, i) => (
               <Rise key={cat.id} index={i + 1} style={styles.cell}>
-                <Pressable role="link" accessibilityRole="link" accessibilityLabel={t(cat.label)} testID={`search-cat-${cat.id}`}
+                <Pressable role="link" accessibilityRole="link" {...cardLabel(t(cat.label))} testID={`search-cat-${cat.id}`}
                   onPress={() => links.openList('category' in cat.filter ? { category: cat.filter.category } : { query: cat.filter.query })}
                   style={({ focused }: Pressed) => [styles.cat, focused ? focusRing : null]}>
                   <IconTile icon={cat.icon} tone={cat.tone} size={34} iconSize={17} />

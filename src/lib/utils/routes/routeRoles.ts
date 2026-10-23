@@ -18,6 +18,8 @@ const CLINICIAN_OR_ADMIN: RouteRoles = ['NMC_DOCTOR', 'SUPER_ADMIN'];
 const COUNSELLOR_DESK: RouteRoles = ['COUNSELLOR', 'SUPER_ADMIN'];
 const MEO_TRIAGE: RouteRoles = ['CAMPUS_ADMIN', 'NMC_DOCTOR', 'SUPER_ADMIN'];
 const PARTNER: RouteRoles = ['VENDOR', 'SUPER_ADMIN'];
+/** The staff app's pickup boards: the lab's partner account and its collectors (backend services/lab_booking.py). */
+const STAFF_APP: RouteRoles = ['VENDOR', 'SUPER_ADMIN', 'LAB_COLLECTOR'];
 const STUDENT_ONLY: RouteRoles = ['STUDENT'];
 const VENDOR_ONLY: RouteRoles = ['VENDOR'];
 
@@ -50,6 +52,7 @@ export const routeRoles: Readonly<Partial<Record<RoutePath, RouteRoles>>> = {
   'consent': STUDENT_ONLY,
   'console': PARTNER,
   'counsellor': COUNSELLOR_DESK, // crisis follow-up queue (names, contacts): counsellors, campus-scoped by the server
+  'data-rights': STUDENT_ONLY,
   'delete-account': STUDENT_ONLY,
   'dispense-register': PARTNER,
   'dispensing': PARTNER,
@@ -63,11 +66,13 @@ export const routeRoles: Readonly<Partial<Record<RoutePath, RouteRoles>>> = {
   'lab-queue': PARTNER,
   'lab-reporting': PARTNER,
   'leave-campus': STUDENT_ONLY,
+  'medicine-info-review': PARTNER, // pharmacists approve medicine information; the partner nav limits it to pharmacies
   'meo': MEO_TRIAGE, // features/care/module.ts
   'my-lab-tests': STUDENT_ONLY, // the student's own released reports (WP-09)
   'my-requests': STUDENT_ONLY,
   'partner-staff': PARTNER,
   'performance': PARTNER,
+  'privacy-consent': STUDENT_ONLY, // Profile → Privacy & consent: the student's own consent ledger
   'refill-request': STUDENT_ONLY,
   'reorder': PARTNER,
   'report-insights': STUDENT_ONLY,
@@ -82,10 +87,10 @@ export const routeRoles: Readonly<Partial<Record<RoutePath, RouteRoles>>> = {
   'settlement': PARTNER,
   'settlements': PARTNER,
   'staff': PARTNER,
-  'staff-collect': PARTNER,
-  'staff-handover': PARTNER,
+  'staff-collect': STAFF_APP,
+  'staff-handover': STAFF_APP,
   'staff-roles': PARTNER,
-  'staff-verify': PARTNER,
+  'staff-verify': STAFF_APP,
   'substitutions': PARTNER,
   'vendor': VENDOR_ONLY,
   'vendor-camp-intake': PARTNER,
@@ -99,6 +104,7 @@ export const routeRoles: Readonly<Partial<Record<RoutePath, RouteRoles>>> = {
   'vendor-settlement': PARTNER,
   'vendor-staff': PARTNER,
   'vendor-substitutions': PARTNER,
+  'whats-new': STUDENT_ONLY, // newsroom product updates, from Profile (features/newsroom)
   'your-care': STUDENT_ONLY, // the student's own overview (the phone tab)
   // keep-sorted end
 };

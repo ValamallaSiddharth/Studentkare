@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { M2ActiveProvider } from '@/design-system/m2';
 import { color } from '@/design-system/theme';
 import { useApiResource } from '@/hooks/api/useApiResource';
@@ -63,6 +63,7 @@ const MedicinesBoard = observer(function MedicinesBoard({ vm }: { vm: PhoneShopV
         seeAll: () => navigate('Marketplace'),
         rewards: () => navigate('Rewards'),
         labs: () => navigate('Labs'),
+        medicineInfo: () => navigate('MedicineInfo'),
       }}
     />
   );
@@ -129,7 +130,9 @@ export function InsuranceScreen(): React.ReactElement {
 export function OrdersScreen(): React.ReactElement {
   const navigate = useNavigate();
   const [vm] = useState(() => new OrdersViewModel());
-  const [orderId, setOrderId] = useState<string | null>(null);
+  // A deep link (studentkare.co/orders/<id>) opens that order's details.
+  const params = useRoute().params as { orderId?: unknown } | undefined;
+  const [orderId, setOrderId] = useState<string | null>(() => (typeof params?.orderId === 'string' ? params.orderId : null));
   useEffect(() => { void vm.load(); return () => vm.dispose(); }, [vm]);
   return (
     <Frame>

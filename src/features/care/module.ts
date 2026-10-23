@@ -10,6 +10,13 @@ export const careModule: FeatureModule = {
     { path: '/care', public: true, load: () => import('./screens/CareScreen').then((m) => ({ default: m.CareScreen })) },
     // Find care near you: public (no location stored); a signed-in student gets it in the workspace.
     { path: '/find-care', public: true, load: () => import('@/features/careDirectory/screens/FindCareScreen').then((m) => ({ default: m.FindCareScreen })) },
+    // Medicine information: public (reviewed information only; nothing about the person is read or kept).
+    { path: '/medicine-info', public: true, load: () => import('@/features/medicineInfo/screens/MedicineInfoScreen').then((m) => ({ default: m.MedicineInfoScreen })) },
+    // The newsroom (features/newsroom): Blog and News, public; posts by slug.
+    { path: '/blog', public: true, load: () => import('@/features/newsroom/screens/NewsroomScreens').then((m) => ({ default: m.BlogScreen })) },
+    { path: '/blog/:slug', public: true, load: () => import('@/features/newsroom/screens/NewsroomScreens').then((m) => ({ default: m.BlogPostScreen })) },
+    { path: '/news', public: true, load: () => import('@/features/newsroom/screens/NewsroomScreens').then((m) => ({ default: m.NewsScreen })) },
+    { path: '/news/:slug', public: true, load: () => import('@/features/newsroom/screens/NewsroomScreens').then((m) => ({ default: m.NewsPostScreen })) },
     { path: '/checkout', load: () => import('./screens/CareScreen').then((m) => ({ default: m.CareScreen })) },
     { path: '/lifeshare', public: true, load: () => import('@/screens/emergency/LifeShareExchangeScreen').then((m) => ({ default: m.LifeShareExchangeScreen })) },
     { path: '/medical-incident', public: true, load: () => import('@/screens/medical/MedicalIncidentScreen').then((m) => ({ default: m.MedicalIncidentScreen })) },

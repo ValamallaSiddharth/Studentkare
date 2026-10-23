@@ -158,7 +158,7 @@ export function AskAyushScreen(): React.ReactElement {
   return (
     <Frame>
       <KeyboardAvoidingView style={styles.frame} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <M2AskAyushView vm={vm} links={{ back, sos: () => navigate('Emergency') }} />
+        <M2AskAyushView vm={vm} links={{ back, sos: () => navigate('Emergency'), book: () => navigate('Consults') }} />
       </KeyboardAvoidingView>
     </Frame>
   );
@@ -199,6 +199,7 @@ const ProductBoard = observer(function ProductBoard({ itemId }: { itemId: string
         navigate('Checkout');
       },
       addRx: () => navigate('CaptureRecord'),
+      info: (medicineId) => navigate('MedicineInfo', { medicineId }),
     }} />
   );
 });

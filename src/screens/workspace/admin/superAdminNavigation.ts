@@ -53,6 +53,8 @@ export const SUPER_ADMIN_NAVIGATION: SuperAdminNavGroup[] = [
       { label: 'Catalogue ops', labelKey: 'console.admin.nav.catalog', icon: 'box', route: 'admin/catalog' },
       // Not on the design canvas: the Find care directory's curated listings and partner verification.
       { label: 'Care directory', labelKey: 'console.admin.nav.careDirectory', icon: 'hospital', route: 'admin/care-directory' },
+      // Not on the design canvas: reviewed medicine information (pharmacists approve; super admins edit and import).
+      { label: 'Medicine info', labelKey: 'console.admin.nav.medicineInfo', icon: 'pill', route: 'admin/medicine-info' },
       // Not on the design canvas: added for held lab reports with no reviewer.
       { label: 'Lab report reviewers', labelKey: 'console.admin.nav.labReviews', icon: 'flask', route: 'admin/lab-reviews' },
     ],
@@ -73,6 +75,8 @@ export const SUPER_ADMIN_NAVIGATION: SuperAdminNavGroup[] = [
       // Not on the design canvas: added for the notification outbox.
       { label: 'Message outbox', labelKey: 'console.admin.nav.outbox', icon: 'inbox', route: 'admin/outbox' },
       { label: 'Knowledge base', labelKey: 'console.admin.nav.knowledge', icon: 'file', route: 'admin/knowledge' },
+      // Not on the design canvas: News and Blog posts in the SK templates (health tips need a clinician's review).
+      { label: 'Posts', labelKey: 'news.adm.title', icon: 'megaphone', route: 'admin/posts' },
       { label: 'Intake & OCR', labelKey: 'console.admin.nav.intake', icon: 'clipboard', route: 'admin/intake' },
     ],
   },
@@ -82,6 +86,8 @@ export const SUPER_ADMIN_NAVIGATION: SuperAdminNavGroup[] = [
     items: [
       { label: 'Rule L firewall', labelKey: 'console.admin.nav.ruleL', icon: 'rows-split', route: 'admin/rule-l' },
       { label: 'Consent policy', labelKey: 'console.admin.nav.consentPolicy', icon: 'book', route: 'admin/consent-policy' },
+      // Not on the design canvas: the privacy notice, terms and grievance officer, versioned (audit H2).
+      { label: 'Legal documents', labelKey: 'console.admin.nav.legalDocuments', icon: 'file-text', route: 'admin/legal-documents' },
       { label: 'Break-glass log', labelKey: 'console.admin.nav.breakGlassLog', icon: 'heart-plus', route: 'admin/break-glass-log' },
       { label: 'Check-in audit', labelKey: 'console.admin.nav.checkins', icon: 'heart-plus', route: 'admin/checkins', activeFor: ['admin/case'] },
       { label: 'Casualty handover', labelKey: 'console.admin.nav.handover', icon: 'arrows-left-right', route: 'admin/handover' },

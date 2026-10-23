@@ -61,7 +61,7 @@ const PROFILE_ROUTES = {
   '/profile': PROFILE,
   '/body/measurements': { height: { id: 'h', value: 174, unit: 'cm', recordedAt: '2026-06-02T10:00:00Z', source: 'MANUAL' }, weight: null },
   '/health/documents': { items: [], total: 12, categoryCounts: { LAB: 6, PRESCRIPTION: 4, OTHER: 1, VACCINE: 1 } },
-  '/plans': { plans: [{ id: 'STUDENT_PLUS', name: 'Student Plus', price: 149, period: 'per month', packages: [{ id: 'QUARTER', months: 3, price: 2199 }] }] },
+  '/billing/plans': { plans: [{ id: 'STUDENT_PLUS', name: 'Student Plus', price: 149, period: 'per month', packages: [{ id: 'QUARTER', months: 3, price: 2199 }] }] },
 };
 
 describe('M2Profile', () => {
@@ -107,7 +107,7 @@ describe('M2Profile', () => {
   });
 
   it('keeps SOS and the emergency card reachable, and each card fails on its own', async () => {
-    const { request } = fakeRequest({ ...PROFILE_ROUTES, '/body/measurements': new Error('down'), '/plans': new Error('down') });
+    const { request } = fakeRequest({ ...PROFILE_ROUTES, '/body/measurements': new Error('down'), '/billing/plans': new Error('down') });
     const vm = new ProfileViewModel(request);
     vm.load();
     const links = profileLinks();
@@ -118,7 +118,7 @@ describe('M2Profile', () => {
     await waitFor(() => expect(vm.plans.phase).toBe('error'));
     expect(screen.queryByTestId('m2-prof-plus')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: en('m2.sosSpoken') }));
-    fireEvent.click(screen.getByRole('link', { name: `${en('m2.prof.emergency')}. ${en('m2.prof.emergencyBody')}` }));
+    fireEvent.click(screen.getByRole('link', { name: new RegExp(`^${en('m2.prof.emergency')}`) }));
     expect(links.sos).toHaveBeenCalledTimes(1);
     expect(links.emergencyCard).toHaveBeenCalledTimes(1);
   });
@@ -288,7 +288,7 @@ describe('safety elements on the health screens', () => {
     const second = wrap(<M2ProfileView vm={profile} links={links} />);
     await waitFor(() => expect(profile.profile.phase).toBe('error'));
     expect(screen.getByRole('button', { name: en('m2.sosSpoken') })).toHaveAttribute('tabindex', '0');
-    const card = screen.getByRole('link', { name: `${en('m2.prof.emergency')}. ${en('m2.prof.emergencyBody')}` });
+    const card = screen.getByRole('link', { name: new RegExp(`^${en('m2.prof.emergency')}`) });
     expect(card).toHaveAttribute('tabindex', '0');
     fireEvent.click(card);
     expect(links.emergencyCard).toHaveBeenCalled();
@@ -344,6 +344,33 @@ describe('M2AskAyush', () => {
     wrap(<M2AskAyushView vm={vm} links={{ back: vi.fn(), sos: vi.fn() }} />);
     fireEvent.click(screen.getByRole('button', { name: en('ayush.starter1') }));
     expect(await screen.findByText(en('ayush.refusal.REFUSED_PERSONAL'))).toBeInTheDocument();
+  });
+
+  it('when nothing matches, says it could not find it in the help and offers Help and a consult, not a dead end', async () => {
+    const { request } = fakeRequest({
+      'POST /agents/ayush/ask': { agent: 'ayush', outcome: 'NO_SOURCE', answer: 'server text', citations: [], answered: false },
+    });
+    const vm = new AyushViewModel(request);
+    const links = { back: vi.fn(), sos: vi.fn(), help: vi.fn(), book: vi.fn() };
+    const { container } = wrap(<M2AskAyushView vm={vm} links={links} />);
+    fireEvent.click(screen.getByRole('button', { name: en('ayush.starter1') }));
+    expect(await screen.findByText(en('assist.ayush.noSource.title'))).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: en('assist.ayush.noSource.help') }));
+    fireEvent.click(screen.getByRole('link', { name: en('assist.ayush.noSource.book') }));
+    expect(links.help).toHaveBeenCalled();
+    expect(links.book).toHaveBeenCalled();
+    const violations = await axeViolations(container);
+    expect(violations, describeViolations(violations)).toEqual([]);
+  });
+
+  it('offers only what the app has: no Help link where there is no help screen', async () => {
+    const { request } = fakeRequest({
+      'POST /agents/ayush/ask': { agent: 'ayush', outcome: 'NO_SOURCE', answer: 'server text', citations: [], answered: false },
+    });
+    wrap(<M2AskAyushView vm={new AyushViewModel(request)} links={{ back: vi.fn(), sos: vi.fn(), book: vi.fn() }} />);
+    fireEvent.click(screen.getByRole('button', { name: en('ayush.starter1') }));
+    expect(await screen.findByRole('link', { name: en('assist.ayush.noSource.book') })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: en('assist.ayush.noSource.help') })).toBeNull();
   });
 });
 

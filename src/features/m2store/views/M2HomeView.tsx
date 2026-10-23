@@ -1,8 +1,8 @@
 import React from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/design-system/icons';
 import { Rise } from '@/design-system';
-import {
+import { cardLabel,
   Gradient, HeroCarousel, LiftCard, M2Heading, M2SearchField, M2SectionHead, M2_NAV_CLEARANCE, NAVY_STOPS, ProgressRing, RoundButton, SERVICE_HUES,
   ServiceRail, SoftIcon, SoftTileGrid, SosButton, heroStops, m2Text, useLift, useOwnPhoneChrome,
 } from '@/design-system/m2';
@@ -72,6 +72,8 @@ export interface M2HomeViewProps {
   recent: readonly LiveCatalogItem[];
   /** Under the board (the Expo app keeps its other destinations and sign-out there). */
   footer?: React.ReactNode;
+  /** "From the StudentKare blog": the latest reviewed health tips (features/newsroom M2BlogCard). Editorial, never about the student. */
+  blog?: React.ReactNode;
 }
 
 const NOON = 12;
@@ -121,13 +123,15 @@ function MedsCard({ data, onPress }: { data: M2HomeData['meds']; onPress: () => 
   const spoken = s ? `${t('m2.home.medsEyebrow')}. ${t('m2.home.medsSpoken', { taken: s.taken, planned: s.planned })}. ${line}` : `${t('m2.home.medsEyebrow')}. ${line}`;
   const lift = useLift();
   return (
-    <Pressable role="link" accessibilityRole="link" accessibilityLabel={spoken} aria-label={spoken} onPress={onPress} testID="m2-home-meds"
+    <Pressable role="link" accessibilityRole="link" {...cardLabel(spoken)} onPress={onPress} testID="m2-home-meds"
       style={(state: PressState) => [styles.medsPress, lift(state)]}>
       <Gradient colors={NAVY_STOPS} angle={160} style={styles.meds}>
         <Text style={styles.medsEyebrow}>{t('m2.home.medsEyebrow')}</Text>
         {s ? (
           <View style={styles.ringRow}>
             <ProgressRing value={s.taken / s.planned} centre={t('m2.home.medsCount', { taken: s.taken, planned: s.planned })} testID="m2-home-meds-ring" />
+            {/* The ring is hidden from screen readers; on the web the card is named by its text, so the count is said in words here. */}
+            {Platform.OS === 'web' ? <Text style={styles.spokenOnly}>{t('m2.home.medsSpoken', { taken: s.taken, planned: s.planned })}</Text> : null}
           </View>
         ) : null}
         <Text style={styles.medsLine}>{line}</Text>
@@ -192,7 +196,7 @@ function CampusTile({ icon, hue, title, onPress, testID }: { icon: 'qr-code-2' |
   );
 }
 
-export function M2HomeView({ name, campus, verified, data, links, cart, recent, footer }: M2HomeViewProps): React.ReactElement {
+export function M2HomeView({ name, campus, verified, data, links, cart, recent, footer, blog }: M2HomeViewProps): React.ReactElement {
   const t = useT();
   useOwnPhoneChrome();
   const phone = orderLinePhone();
@@ -215,7 +219,7 @@ export function M2HomeView({ name, campus, verified, data, links, cart, recent, 
       <Rise>
         <View style={styles.header}>
           {links.menu ? (
-            <Pressable role="button" accessibilityRole="button" accessibilityLabel={t('m2.home.openMenu')} aria-label={t('m2.home.openMenu')} onPress={links.menu}
+            <Pressable role="button" accessibilityRole="button" accessibilityLabel={t('m2.home.openMenuInitials', { initials: initials(name) })} aria-label={t('m2.home.openMenuInitials', { initials: initials(name) })} onPress={links.menu}
               testID="m2-home-avatar" style={({ focused }: PressState) => [styles.avatar, focused ? focusRing : null]}>
               <Text style={styles.avatarText}>{initials(name)}</Text>
             </Pressable>
@@ -277,6 +281,8 @@ export function M2HomeView({ name, campus, verified, data, links, cart, recent, 
         <ConsultCard data={data.consult} links={links} />
       </Rise>
 
+      {blog ? <Rise index={6} style={styles.gutter}>{blog}</Rise> : null}
+
       <Rise index={6} style={styles.gutter}>
         <M2SectionHead title={t('m2.home.concern')} action={links.services.medicines ? { label: t('m2.seeAll'), spoken: t('m2.home.seeAllMedicines'), onPress: links.services.medicines } : undefined} />
         <SoftTileGrid testID="m2-home-concern" items={HOME_CONCERNS.map((c) => ({ key: c.key, label: t(c.label), icon: c.icon, hue: c.hue, onPress: () => links.concern(c.filter) }))} />
@@ -323,6 +329,8 @@ export function M2HomeView({ name, campus, verified, data, links, cart, recent, 
 }
 
 const styles = StyleSheet.create({
+  // Read by screen readers, not drawn (opacity, not display: none, so it stays in the accessible name).
+  spokenOnly: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0 },
   screen: { flex: 1, backgroundColor: color.canvas },
   content: { paddingTop: space.s16, paddingBottom: M2_NAV_CLEARANCE, gap: space.s16, width: '100%', maxWidth: size.phoneFrameMax, alignSelf: 'center', overflow: 'hidden' },
   glow: { position: 'absolute', top: -120, right: -90, width: 300, height: 300, borderRadius: radius.full, opacity: 0.9 },

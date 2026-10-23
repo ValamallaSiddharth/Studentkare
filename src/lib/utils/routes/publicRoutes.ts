@@ -8,6 +8,7 @@ import type { RoutePath } from '../workflowRouting';
  */
 export const publicRoutes: RoutePath[] = [
   // keep-sorted start
+  'blog',
   'campuses',
   'campuses/apply',
   'care',
@@ -20,6 +21,8 @@ export const publicRoutes: RoutePath[] = [
   'landing',
   'logged-out',
   'login',
+  'medicine-info',
+  'news',
   'partnerships',
   'partnerships/apply',
   'pricing',

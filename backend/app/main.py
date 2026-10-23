@@ -58,6 +58,7 @@ from core.sentry import init_sentry
 from core.telemetry import (
     get_prometheus_app,
     init_telemetry,
+    internal_only,
     shutdown_telemetry,
     update_db_pool_metrics,
     update_job_metrics,
@@ -71,14 +72,19 @@ from services.billing import router as billing_router
 from services.campus_departure import router as campus_departure_router
 from services.care_directory import router as care_directory_router
 from services.clinical_api import router as clinical_router
+from services.consent_ledger import router as consent_ledger_router
 from services.db_sql import SessionLocal, create_all_tables, is_persistent
 from services.emergency_api import router as emergency_router
 from services.erasure import router as erasure_router
 from services.integrations import router as integrations_router
 from services.lab_booking import router as lab_booking_router
 from services.lab_results import router as lab_results_router
+from services.legal_documents import router as legal_documents_router
+from services.medicine_info import router as medicine_info_router
 from services.medicine_master import router as medicine_master_router
 from services.member_profile_api import router as member_profile_router
+from services.named_super_admins import router as named_super_admins_router
+from services.newsroom import router as newsroom_router
 from services.otp_delivery import available_channels, whatsapp_status
 from services.preventive_care import router as preventive_router
 from services.rewards_api import router as rewards_router
@@ -91,7 +97,7 @@ from services.student_requests import router as student_requests_router
 from services.team_accounts import router as team_accounts_router
 from services.wellness_api import router as wellness_router
 from services.workflow_api import router as workflow_router
-from services.workflow_auth import require_super_admin, workflow_db
+from services.workflow_auth import allowed_origins, require_super_admin, workflow_db
 from services.workflow_auth import router as auth_router
 
 
@@ -169,12 +175,20 @@ async def lifespan(app):
             print("[SEED] Skipped: demo accounts need APP_ENV=development or testing and SEED_DEMO_DATA=true.")
     except Exception as e:
         print(f"[SEED] Skipped: {e}")
+    # Agent Ayush: publish the help pack (unless AYUSH_HELP_PACK_AUTOLOAD=false) and index
+    # anything approved but missing or embedded by another model. In a thread: an
+    # on-prem embedding model can be slow or down, and startup must not wait on it.
+    import threading as _ayush_threading
+
+    from services.ayush_health import startup_sync
+    _ayush_threading.Thread(target=startup_sync, args=(SessionLocal,), name="ayush-index-sync", daemon=True).start()
     # Initialize OpenTelemetry (fail-closed: never breaks startup)
     init_telemetry()
     # Initialize Sentry (fail-closed: no DSN = no Sentry)
     init_sentry()
     # Mount Prometheus metrics endpoint
-    app.mount("/metrics", get_prometheus_app())
+    # Internal network only (audit L2): core/telemetry.internal_only.
+    app.mount("/metrics", internal_only(get_prometheus_app()))
     # Periodic DB pool metrics update
     import asyncio
     async def update_pool_metrics():
@@ -246,13 +260,21 @@ app.add_middleware(ActivityTelemetryMiddleware)
 # own Cache-Control. Everything else is no-store. /api/config/public carries no
 # per-user data (services/integrations.py), and the app reads it at boot.
 CACHEABLE_PATHS = frozenset({"/api/config/public"})
+# The newsroom's public reads (services/newsroom.py): published posts, feeds, the
+# sitemap and share images, identical for everyone (no session is read there).
+CACHEABLE_PREFIXES = ("/api/posts/",)
+
+
+def cacheable(request) -> bool:
+    path = request.url.path
+    return path in CACHEABLE_PATHS or (request.method == "GET" and (path == "/api/posts" or path.startswith(CACHEABLE_PREFIXES)))
 
 
 @app.middleware("http")
 async def response_headers(request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
-    if request.url.path not in CACHEABLE_PATHS or "Cache-Control" not in response.headers:
+    if not cacheable(request) or "Cache-Control" not in response.headers:
         response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -266,7 +288,9 @@ async def response_headers(request, call_next):
 # reaches, or spends budget in, the rate limiter. The allow-list is unchanged:
 # a disallowed origin still gets no Access-Control-Allow-Origin header.
 app.add_middleware(CORSMiddleware,
-    allow_origins=[value.strip() for value in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:4173,http://127.0.0.1:4173").split(',')],
+    # ALLOWED_ORIGINS, or local origins in development/testing only; none in
+    # production when unset (fail closed, audit L3).
+    allow_origins=allowed_origins(),
     allow_credentials=True, allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Content-Type", "X-CSRF-Token", "Idempotency-Key"],
 )
@@ -342,6 +366,8 @@ app.include_router(erasure_router)
 app.include_router(student_requests_router)
 app.include_router(clinical_router)
 app.include_router(medicine_master_router)
+app.include_router(medicine_info_router)
+app.include_router(newsroom_router)
 app.include_router(lab_booking_router)
 app.include_router(rx_uploads_router)
 app.include_router(lab_results_router)
@@ -354,4 +380,7 @@ app.include_router(account_password_router)
 app.include_router(account_contacts_router)
 app.include_router(signup_contacts_router)
 app.include_router(student_invites_router)
+app.include_router(consent_ledger_router)
+app.include_router(legal_documents_router)
+app.include_router(named_super_admins_router)
 app.include_router(apilayer_router, dependencies=[Depends(require_super_admin)])

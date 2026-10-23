@@ -114,7 +114,7 @@ describe('StudentWebShell', () => {
     expect(props.onNavigate).toHaveBeenCalledWith('checkout');
     fireEvent.click(screen.getByRole('button', { name: 'My orders' }));
     expect(props.onNavigate).toHaveBeenCalledWith('orders');
-    fireEvent.click(screen.getByRole('button', { name: 'My account' }));
+    fireEvent.click(screen.getByRole('button', { name: /, my account$/ }));
     expect(props.onNavigate).toHaveBeenCalledWith('profile');
   });
 
@@ -175,6 +175,7 @@ describe('student nav data', () => {
 
   it('maps related routes to their sidebar item', () => {
     expect(studentNavIdFor('health')).toBe('your-care');
+    expect(studentNavIdFor('your-care')).toBe('your-care');
     expect(studentNavIdFor('digital-id')).toBe('account');
     expect(studentNavIdFor('notification-settings')).toBe('notifications');
     expect(studentNavIdFor('notifications')).toBe('notifications');

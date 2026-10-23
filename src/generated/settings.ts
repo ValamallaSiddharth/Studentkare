@@ -39,6 +39,20 @@ export interface PublicSettings {
   "lab_results.pinned_max": number;
   /** Largest magnitude a typed value or printed range limit may have (catches typing slips). (any unit) */
   "lab_results.value_abs_max": number;
+  /** Age at which the 'adult' band starts. (years) */
+  "medicine_info.adult_from_years": number;
+  /** Bands that end below this age always show 'Ask a doctor or pharmacist before giving this'. (years) */
+  "medicine_info.ask_doctor_below_years": number;
+  /** Age at which the medicine-information 'child' band starts (below it: under-2). (years) */
+  "medicine_info.child_from_years": number;
+  /** Age at which the 'older adult' band starts. (years) */
+  "medicine_info.older_adult_from_years": number;
+  /** Largest photo of a strip or box the server reads. (KB) */
+  "medicine_info.photo_max_kb": number;
+  /** Fewest characters before a medicine search runs. (characters) */
+  "medicine_info.search_min_chars": number;
+  /** Age at which the 'teen' band starts. (years) */
+  "medicine_info.teen_from_years": number;
   /** How long after marking a dose taken or skipped the student can undo it. (minutes) */
   "meds.dose_undo_minutes": number;
   /** Time of the 'afternoon' medicine reminder slot on the phone. (minutes after midnight) */
@@ -51,6 +65,14 @@ export interface PublicSettings {
   "meds.reminder_minute_night": number;
   /** Most reminder times one medication plan may have in a day. (doses per day) */
   "meds.times_per_day_max": number;
+  /** Latest health tips on the student Home card ('From the StudentKare blog'). (posts) */
+  "newsroom.home_teasers": number;
+  /** Posts on one page of the Blog or News list. (posts) */
+  "newsroom.page_size": number;
+  /** Related posts shown under a post. (posts) */
+  "newsroom.related_count": number;
+  /** Reading speed used for a post's reading time. (words per minute) */
+  "newsroom.words_per_minute": number;
   /** Hours a pharmacy's price quote stays payable. 0 means quotes do not expire. (hours) */
   "pharmacy.quote_expiry_hours": number;
   /** Days between a student's account-deletion request and its erasure; they can cancel until then. (days) */
@@ -178,12 +200,23 @@ export const publicSettingDefaults: Readonly<PublicSettings> = {
   "lab_results.max_rows_per_report": 60,
   "lab_results.pinned_max": 8,
   "lab_results.value_abs_max": 10000000.0,
+  "medicine_info.adult_from_years": 18,
+  "medicine_info.ask_doctor_below_years": 12,
+  "medicine_info.child_from_years": 2,
+  "medicine_info.older_adult_from_years": 65,
+  "medicine_info.photo_max_kb": 6144,
+  "medicine_info.search_min_chars": 2,
+  "medicine_info.teen_from_years": 12,
   "meds.dose_undo_minutes": 30,
   "meds.reminder_minute_afternoon": 840,
   "meds.reminder_minute_evening": 1200,
   "meds.reminder_minute_morning": 480,
   "meds.reminder_minute_night": 1320,
   "meds.times_per_day_max": 6,
+  "newsroom.home_teasers": 2,
+  "newsroom.page_size": 9,
+  "newsroom.related_count": 3,
+  "newsroom.words_per_minute": 200,
   "pharmacy.quote_expiry_hours": 0,
   "privacy.deletion_grace_days": 7,
   "public_site.app_store_url": "",
@@ -252,12 +285,23 @@ export const publicSettingSpecs: Readonly<Record<PublicSettingKey, PublicSetting
   "lab_results.max_rows_per_report": { type: "int", min: 1, max: 200, allowed: [], unit: "values" },
   "lab_results.pinned_max": { type: "int", min: 1, max: 50, allowed: [], unit: "tests" },
   "lab_results.value_abs_max": { type: "float", min: 1, max: 1000000000, allowed: [], unit: "any unit" },
+  "medicine_info.adult_from_years": { type: "int", min: 12, max: 21, allowed: [], unit: "years" },
+  "medicine_info.ask_doctor_below_years": { type: "int", min: 2, max: 18, allowed: [], unit: "years" },
+  "medicine_info.child_from_years": { type: "int", min: 1, max: 5, allowed: [], unit: "years" },
+  "medicine_info.older_adult_from_years": { type: "int", min: 50, max: 80, allowed: [], unit: "years" },
+  "medicine_info.photo_max_kb": { type: "int", min: 256, max: 20480, allowed: [], unit: "KB" },
+  "medicine_info.search_min_chars": { type: "int", min: 2, max: 6, allowed: [], unit: "characters" },
+  "medicine_info.teen_from_years": { type: "int", min: 6, max: 16, allowed: [], unit: "years" },
   "meds.dose_undo_minutes": { type: "int", min: 0, max: 240, allowed: [], unit: "minutes" },
   "meds.reminder_minute_afternoon": { type: "int", min: 0, max: 1439, allowed: [], unit: "minutes after midnight" },
   "meds.reminder_minute_evening": { type: "int", min: 0, max: 1439, allowed: [], unit: "minutes after midnight" },
   "meds.reminder_minute_morning": { type: "int", min: 0, max: 1439, allowed: [], unit: "minutes after midnight" },
   "meds.reminder_minute_night": { type: "int", min: 0, max: 1439, allowed: [], unit: "minutes after midnight" },
   "meds.times_per_day_max": { type: "int", min: 1, max: 24, allowed: [], unit: "doses per day" },
+  "newsroom.home_teasers": { type: "int", min: 0, max: 4, allowed: [], unit: "posts" },
+  "newsroom.page_size": { type: "int", min: 3, max: 30, allowed: [], unit: "posts" },
+  "newsroom.related_count": { type: "int", min: 0, max: 6, allowed: [], unit: "posts" },
+  "newsroom.words_per_minute": { type: "int", min: 100, max: 400, allowed: [], unit: "words per minute" },
   "pharmacy.quote_expiry_hours": { type: "int", min: 0, max: 720, allowed: [], unit: "hours" },
   "privacy.deletion_grace_days": { type: "int", min: 1, max: 30, allowed: [], unit: "days" },
   "public_site.app_store_url": { type: "str", min: null, max: null, allowed: [], unit: "https URL" },

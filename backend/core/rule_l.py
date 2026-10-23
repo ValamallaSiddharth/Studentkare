@@ -86,6 +86,9 @@ TABLE_PLANES: dict[str, str] = {
     "care_catalog_images": COMMERCE,              # product photos (moved out of care_documents)
     "care_medicines": COMMERCE,                   # medicine master: composition, form, schedule (no person)
     "care_medicine_ingredients": COMMERCE,        # salts and strengths of a master record
+    "care_medicine_info_fields": COMMERCE,        # reviewed medicine information (label text, sources, reviewer ids)
+    "care_medicine_info_events": COMMERCE,        # append-only trail of those changes (ids and hashes)
+    "care_medicine_info_imports": COMMERCE,       # licensed-dataset CSV imports (counts, row errors)
     "care_orders": COMMERCE,
     "care_order_lines": COMMERCE,
     "care_payments": COMMERCE,
@@ -150,6 +153,9 @@ TABLE_PLANES: dict[str, str] = {
     "care_reviewed_benefits": PLATFORM,
     "care_service_providers": PLATFORM,
     "care_facilities": PLATFORM,                  # the care directory: places and phone numbers, no person
+    "care_posts": PLATFORM,                       # News and Blog posts: editorial text, never about a student
+    "care_post_events": PLATFORM,                 # append-only trail of post edits, reviews and publishing (ids, hashes)
+    "care_post_images": PLATFORM,                 # images placed in posts, virus-scanned before storing
     "care_availability_slots": PLATFORM,
     "care_lab_test_reference": PLATFORM,          # test names and body-system groups; no person, no range
     "care_lab_collectors": PLATFORM,              # which staff account collects for which lab
@@ -158,6 +164,8 @@ TABLE_PLANES: dict[str, str] = {
     "care_health_camp_stations": PLATFORM,
     "care_preventive_providers": PLATFORM,
     "care_dpdp_consent_policy_versions": PLATFORM,
+    "care_legal_documents": PLATFORM,             # privacy notice, terms, grievance officer: legal text, no person
+    "care_named_super_admins": PLATFORM,          # which super admins are named people; no grant to either role
     "care_campus_security_contacts": PLATFORM,
     "care_appearance_preferences": PLATFORM,      # System / Dark / Light per account; a display choice only
     "care_setting_overrides": PLATFORM,           # business settings (core/settings_registry.py)
@@ -209,6 +217,7 @@ def _matrix() -> dict[str, dict[str, Grant]]:
     commerce = {t: Grant(RW) for t, plane in TABLE_PLANES.items() if plane == COMMERCE}
     commerce["care_catalog_images"] = Grant(RWD)   # replacing / removing a product photo
     commerce["care_medicine_ingredients"] = Grant(RWD)   # editing a composition replaces its salts
+    commerce["care_medicine_info_events"] = Grant(("SELECT", "INSERT"))   # append-only audit trail
     # The commerce paths need to know a provider exists and is active, and must
     # be able to leave an audit trail. Nothing more of identity or platform.
     commerce["care_accounts"] = Grant(("SELECT",), ("id", "role", "active"))

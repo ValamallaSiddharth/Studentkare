@@ -17,6 +17,8 @@ from sqlalchemy.orm import Session as DBSession
 
 from core import settings_registry
 from core import workflow_models as M
+from core.app_env import is_production
+from services import integration_secret_vault as vault
 from services import ops_feed, twofa_store
 from services.integration_config import (
     INTEGRATIONS_DB,
@@ -27,6 +29,8 @@ from services.integration_config import (
 )
 from services.otp_delivery import reset_whatsapp_status, whatsapp_status
 from services.workflow_auth import (
+    FAIL_CLOSED_TWO_FACTOR_ROLES,
+    KNOWN_ROLES,
     StrictModel,
     authenticated_user,
     issue_session,
@@ -34,7 +38,7 @@ from services.workflow_auth import (
     remember_device,
     require_super_admin,
     session_payload,
-    two_factor_enforced_roles,
+    two_factor_required,
     two_factor_setup_user,
     workflow_db,
 )
@@ -66,6 +70,28 @@ def get_public_config(response: Response, db: DBSession = Depends(workflow_db)):
     return {**public_config(), "settings": settings_registry.public_values(db)}
 
 
+TWOFA_KEYS = frozenset({"enforced_roles", "issuer"})
+
+
+def _check_two_factor_policy(candidate: dict) -> None:
+    """The 2FA policy can be tightened through this API but never switched off in production (audit M4)."""
+    unknown = set(candidate) - TWOFA_KEYS
+    if unknown:
+        raise HTTPException(422, f"Unknown 2FA settings: {', '.join(sorted(unknown))}.")
+    roles = candidate.get("enforced_roles")
+    if isinstance(roles, str):
+        roles = roles.split(",")
+    if not isinstance(roles, list) or not all(isinstance(r, str) for r in roles):
+        raise HTTPException(422, "enforced_roles must be a list of role names.")
+    roles = sorted({r.strip().upper() for r in roles if r.strip()})
+    if not set(roles) <= KNOWN_ROLES:
+        raise HTTPException(422, f"Unknown role in enforced_roles: {', '.join(sorted(set(roles) - KNOWN_ROLES))}.")
+    if is_production() and not FAIL_CLOSED_TWO_FACTOR_ROLES <= set(roles):
+        raise HTTPException(422, "Two-step sign-in can't be switched off for "
+                                 f"{', '.join(sorted(FAIL_CLOSED_TWO_FACTOR_ROLES))} in production.")
+    candidate["enforced_roles"] = roles
+
+
 @router.get("/admin/integrations")
 def list_integrations(user: dict = Depends(require_super_admin), db: DBSession = Depends(workflow_db)):
     # WhatsApp can be configured and still not deliver (the session logged out):
@@ -81,13 +107,23 @@ def update_integration(provider: str, body: ConfigUpdate,
     if provider not in INTEGRATIONS_DB:
         raise HTTPException(404, f"Unknown provider '{provider}'")
     current = INTEGRATIONS_DB[provider]
+    candidate = dict(current)
     for k, v in (body.config or {}).items():
         if k.endswith(("_masked", "_set")):
             continue
         # A form that round-trips the masked placeholder must not overwrite the real secret with it.
         if is_secret_field(k) and isinstance(v, str) and "••••" in v:
             continue
-        current[k] = v
+        candidate[k] = v
+    if provider == "twofa":
+        _check_two_factor_policy(candidate)
+    # Fail closed before anything changes: no plaintext secret in production (audit M4).
+    try:
+        vault.require_key_for(candidate)
+    except vault.VaultKeyMissing as exc:
+        raise HTTPException(503, {"code": "INTEGRATIONS_KEY_MISSING", "message": str(exc)})
+    current.clear()
+    current.update(candidate)
     save_to_db(provider)
     if provider == "openwa":
         reset_whatsapp_status()
@@ -167,6 +203,14 @@ def test_integration(provider: str, user: dict = Depends(require_super_admin)):
         from services import hfr_registry
         current = hfr_registry.status()
         return {"success": False, "state": current["state"], "message": current["message"]}
+    if provider == "medicine_ocr":
+        # Says whether photos of medicine strips can be read here; reads nothing.
+        from services import medicine_ocr
+        state = medicine_ocr.status()["state"]
+        return {"success": state == medicine_ocr.READY, "state": state,
+                "message": {"READY": "The Tesseract reader is installed and on.",
+                            "UNAVAILABLE": "Switched on, but the Tesseract program is not installed on this server.",
+                            }.get(state, "Not switched on. Reading photos of medicine strips is off.")}
     if provider in ("otp", "twofa"):
         return {"success": True, "message": f"{provider} policy valid", "config": sanitize(provider)}
     if provider == "platform":
@@ -276,7 +320,8 @@ def _qr_rows(text: str) -> list[str]:
 def status_2fa(response: Response, user: dict = Depends(two_factor_setup_user), db: DBSession = Depends(workflow_db)):
     response.headers["Cache-Control"] = "no-store"
     enabled = twofa_store.is_enabled(db, user["id"])
-    required = user["role"] in two_factor_enforced_roles()
+    account = db.get(M.Account, user["id"])
+    required = account is not None and two_factor_required(db, account)
     return {"enabled": enabled, "required": required, "setupRequired": required and not enabled}
 
 
@@ -322,7 +367,8 @@ def disable_2fa(body: TwoFAToken, user: dict = Depends(authenticated_user), db: 
         return {"success": True, "message": "2FA already disabled"}
     # A role that must use 2FA can't switch it off: that would hand the next
     # sign-in back to the OTP alone. A lost app is a reset, not a disable.
-    if user["role"] in two_factor_enforced_roles():
+    account = db.get(M.Account, user["id"])
+    if account is None or two_factor_required(db, account):
         raise HTTPException(403, {"code": "TWO_FACTOR_REQUIRED_FOR_ROLE",
                                   "message": "Your role needs two-step sign-in, so it can't be turned off."})
     limit(db, f"2fa-code:{user['id']}", 10, 300)
@@ -349,6 +395,12 @@ def challenge_2fa(body: TwoFAToken, request: Request, response: Response, db: DB
     if not account or not account.active:
         raise HTTPException(404, "No active account was found.")
     code_proven = time.time() if first_factor == "CODE" else 0.0
+    named = db.get(M.NamedSuperAdmin, account.id) if account.role == "SUPER_ADMIN" else None
+    if named is not None and not named.totp_signed_in_at:
+        # The first sign-in through the authenticator: what retiring the shared
+        # super admin waits for (services/named_super_admins.py).
+        named.totp_signed_in_at = time.time()
+        _audit(db, {"id": account.id}, "NAMED_SUPER_ADMIN_TOTP_SIGN_IN", account.id)
     csrf = issue_session(db, account, response, request, code_verified_at=code_proven)
     remember_device(db, account, request, response)
     db.commit()
@@ -397,4 +449,4 @@ def reset_2fa(account_id: str, body: TwoFactorResetInput, user: dict = Depends(r
                     resource_type="account", resource_id=account_id)
     db.commit()
     return {"id": account_id, "sessionsEnded": ended,
-            "setupRequired": account.role in two_factor_enforced_roles()}
+            "setupRequired": two_factor_required(db, account)}

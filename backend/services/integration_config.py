@@ -61,13 +61,14 @@ INTEGRATIONS_DB: dict = {
         "app_domain": os.getenv("APP_DOMAIN", "studentkare.co"),
         "brand_name": os.getenv("BRAND_NAME", "StudentKare"),
         "support_email": os.getenv("SUPPORT_EMAIL", f"support@{os.getenv('APP_DOMAIN', 'studentkare.co')}"),
-        "company_address": os.getenv("COMPANY_ADDRESS", "Plot 42, Knowledge Park, HITEC City, Hyderabad, Telangana 500081"),
+        # No made-up defaults (audit L8): unset means nothing is shown.
+        "company_address": os.getenv("COMPANY_ADDRESS", ""),
         "copyright_text": os.getenv("COPYRIGHT_TEXT", "© StudentKare. All rights reserved."),
         # The group the product belongs to, shown beside the copyright in
         # outbound mail and messages. Override with PARENT_COMPANY (or the
         # SuperAdmin integration settings) rather than editing a template.
         "parent_company": os.getenv("PARENT_COMPANY", "Axiss Groups"),
-        "support_phone": os.getenv("SUPPORT_PHONE", "+91 80080 00000"),
+        "support_phone": os.getenv("SUPPORT_PHONE", ""),
         "logo_url": os.getenv("LOGO_URL", ""),
         "favicon_url": os.getenv("FAVICON_URL", ""),
     },
@@ -85,6 +86,15 @@ INTEGRATIONS_DB: dict = {
         "registry_url": os.getenv("ABDM_HFR_REGISTRY_URL", ""),
         "client_id": os.getenv("ABDM_HFR_CLIENT_ID", ""),
         "client_secret": os.getenv("ABDM_HFR_CLIENT_SECRET", ""),
+    },
+    # Reading the printed text on a photo of a medicine strip or box (Medicine
+    # information, plan tier1-medicine-info-2026-10-22, D-MI-10). Tesseract on our
+    # own server, no third party. Off until the AI-constitution owner and the DPO
+    # sign; the screen says so (services/medicine_ocr.py).
+    "medicine_ocr": {
+        "enabled": os.getenv("MEDICINE_OCR_ENABLED", "false").lower() == "true",
+        "engine": "tesseract",
+        "binary": os.getenv("MEDICINE_OCR_TESSERACT", "tesseract"),
     },
     "apilayer": {
         "enabled": os.getenv("APILAYER_ENABLED", "false").lower() == "true",
@@ -175,6 +185,9 @@ def save_to_db(provider: str):
                 row.updated_at = time.time()
             db.commit()
     except Exception as e:
+        from services.integration_secret_vault import VaultKeyMissing
+        if isinstance(e, VaultKeyMissing):
+            raise  # never fall back to plaintext in production (audit M4)
         print(f"[CONFIG] Could not persist {provider} to database: {e}", flush=True)
 
 

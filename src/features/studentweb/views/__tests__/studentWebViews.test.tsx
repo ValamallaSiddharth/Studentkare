@@ -249,9 +249,9 @@ describe('WebShop, search and product', () => {
     render(withCart(<><WebShopView /><CartProbe onCart={(n) => { units = n; }} /></>));
     await settle();
     expect(screen.getByText(/no placement is for sale/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Add Vitamin D3/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Add, Vitamin D3/i }));
     expect(units).toBe(1);
-    expect(screen.getByRole('button', { name: /Add Rx tablet/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Add, Rx tablet/i })).toBeDisabled();
   });
 
   it('shows search results with server counts, listed by name and never ranked by health', async () => {
@@ -315,7 +315,7 @@ describe('WebCheckout', () => {
     serve({ '/cart/validate': { serviceable: true, items: [{ id: 'a', available: true, reason: '' }] }, '/orders': order('new0000000', 'REQUESTED') });
     render(withCart(<><Seed items={[item('a')]} /><WebCheckoutView /></>));
     await settle();
-    expect(screen.getByText('Your cart · 1 items')).toBeInTheDocument();
+    expect(screen.getByText('Your cart · 1 item')).toBeInTheDocument();
     expect(screen.getByText(/Paying confers no access to anyone’s records/)).toBeInTheDocument();
     fill();
     fireEvent.click(screen.getByRole('button', { name: /Continue to pay/ }));
