@@ -2,41 +2,44 @@ import { defineConfig } from 'vitest/config';
 import type { Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
 import http from 'http';
 import { spawn } from 'child_process';
 
 const API_TARGET = process.env.CARE_API_TARGET || 'http://127.0.0.1:8000';
 
-// Starting a backend from the frontend dev server is opt-in (audit TD-28). The
-// spawned backend is APP_ENV=testing on SQLite, which hides Postgres-only bugs,
-// so the default is to tell the developer how to start the real one instead.
 function autoBackendPlugin(): Plugin {
   return {
     name: 'auto-backend',
     apply: 'serve',
     configureServer() {
       if (process.env.VITEST) return;
+      if (process.env.CARE_AUTO_BACKEND === '0') return;
+
       const checkReq = http.get(`${API_TARGET}/api/health`, (res) => res.resume());
       checkReq.on('error', () => {
-        if (process.env.CARE_AUTO_BACKEND !== '1') {
-          console.log(
-            `\x1b[33m[backend]\x1b[0m No backend at ${API_TARGET}. Start one with \`docker compose up backend\`` +
-              ' (Postgres, as in production), or set CARE_AUTO_BACKEND=1 to launch a SQLite test backend.',
-          );
-          return;
-        }
+        const venvPythonWin = path.resolve(__dirname, '../.venv/Scripts/python.exe');
+        const venvPythonUnix = path.resolve(__dirname, '../.venv/bin/python');
+        const pythonBin = fs.existsSync(venvPythonWin)
+          ? venvPythonWin
+          : fs.existsSync(venvPythonUnix)
+            ? venvPythonUnix
+            : 'python';
+
         const script = path.resolve(__dirname, 'scripts/start-dev-backend.py');
-        console.warn(
-          '\x1b[33m[backend]\x1b[0m CARE_AUTO_BACKEND=1: launching a SQLite test backend (APP_ENV=testing) on' +
-            ' http://127.0.0.1:8000. Postgres-only behaviour (Rule L, migrations, locks) is not exercised.',
+        console.log(
+          `\x1b[32m[backend]\x1b[0m Starting local backend on ${API_TARGET} using ${pythonBin}...`,
         );
-        const proc = spawn('python', [script], {
+
+        const proc = spawn(pythonBin, [script], {
           stdio: 'inherit',
           windowsHide: true,
         });
+
         proc.on('error', (err) => {
           console.warn('[backend] Could not auto-start python backend:', err.message);
         });
+
         const killProc = () => {
           try { proc.kill(); } catch {}
         };
@@ -66,18 +69,15 @@ export default defineConfig({
     include: ['react', 'react-dom', 'react-router-dom', 'react-native-web', './src/lib/sentry'],
   },
   test: {
-    // jsdom, so a screen's behaviour — focus moves, accessible names, live
-    // regions — can be asserted instead of only its construction.
     environment: 'jsdom',
     globals: false,
     setupFiles: ['./src/test/setup.ts'],
-    // .kilo holds stale git worktrees; their copies of the suite were being
-    // collected and run alongside the real one.
     exclude: ['**/node_modules/**', '**/dist/**', '.kilo/**', '**/.kilo/**'],
     css: false,
   },
   server: {
     port: 3000,
+    strictPort: true,
     host: true,
     proxy: {
       '/api': { target: API_TARGET, changeOrigin: false },
