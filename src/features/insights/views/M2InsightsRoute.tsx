@@ -3,6 +3,7 @@ import { Linking } from 'react-native';
 import { useAuth } from '@/data/contexts/AuthContext';
 import { apiFileUrl } from '@/data/services/http';
 import { navigate } from '@/lib/utils/workflowRouting';
+import { useMediaQuery } from '@/hooks/ui/useMediaQuery';
 import { InsightsViewModel } from '../viewmodel/InsightsViewModel';
 import { M2InsightsView } from './M2InsightsView';
 
@@ -13,7 +14,9 @@ import { M2InsightsView } from './M2InsightsView';
  * a medicine (Rule L, plan D-M2-9). Above phone width the desktop shell draws
  * it `wide` (Tier 1 parity plan 2026-10-24 §2); SOS is the shell's (§1).
  */
-export function M2InsightsRoute({ wide = false }: { wide?: boolean } = {}): React.ReactElement {
+export function M2InsightsRoute({ wide }: { wide?: boolean } = {}): React.ReactElement {
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const effectiveWide = wide !== undefined ? wide : isDesktop;
   const { user } = useAuth();
   const [vm] = useState(() => new InsightsViewModel());
   useEffect(() => {
@@ -21,7 +24,7 @@ export function M2InsightsRoute({ wide = false }: { wide?: boolean } = {}): Reac
     return () => vm.dispose();
   }, [vm]);
   return (
-    <M2InsightsView vm={vm} name={user?.fullName ?? ''} wide={wide} links={{
+    <M2InsightsView vm={vm} name={user?.fullName ?? ''} wide={effectiveWide} links={{
       trends: () => navigate('health/trends'),
       records: () => navigate('records'),
       reportUpload: () => navigate('health/report-upload'),
