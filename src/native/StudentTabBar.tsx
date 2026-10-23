@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PillNav } from '@/design-system/m2';
+import { M2SosProvider, PillNav } from '@/design-system/m2';
 import type { PillNavKey } from '@/design-system/m2';
 import { color } from '@/design-system/theme';
 
@@ -39,6 +39,7 @@ const HOME_STORE_ROUTES: ReadonlySet<string> = new Set([
 const HEALTH_ROUTES: ReadonlySet<string> = new Set([
   // keep-sorted start
   'MedicineReminders',
+  'Refills',
   'ReportUpload',
   'Steps',
   'Trends',
@@ -73,11 +74,15 @@ export function StudentTabBar({ currentRoute, navigate, bottomInset }: StudentTa
 }
 
 /** The signed-in student's stack with the pill nav under it (navigator `layout`). */
-export function StudentShell({ currentRoute, navigate, children }: Omit<StudentTabBarProps, 'bottomInset'> & { children: React.ReactNode }): React.ReactElement {
+export function StudentShell({ currentRoute, navigate, onSos, children }: Omit<StudentTabBarProps, 'bottomInset'> & {
+  /** What SOS in a board's header opens (the Emergency screen): every Mobile 2.0 header carries it (founder decision, 23 Oct 2026). */
+  onSos: () => void;
+  children: React.ReactNode;
+}): React.ReactElement {
   const insets = useSafeAreaInsets();
   return (
     <View style={styles.shell}>
-      <View style={styles.screens}>{children}</View>
+      <View style={styles.screens}><M2SosProvider value={onSos}>{children}</M2SosProvider></View>
       <StudentTabBar currentRoute={currentRoute} navigate={navigate} bottomInset={insets.bottom} />
     </View>
   );

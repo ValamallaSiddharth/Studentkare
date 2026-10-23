@@ -86,8 +86,13 @@ from services.medicine_master import router as medicine_master_router
 from services.member_profile_api import router as member_profile_router
 from services.named_super_admins import router as named_super_admins_router
 from services.newsroom import router as newsroom_router
+from services.newsroom_autopilot import router as newsroom_autopilot_router
+from services.newsroom_content import router as newsroom_content_router
 from services.otp_delivery import available_channels, whatsapp_status
 from services.preventive_care import router as preventive_router
+from services.push_api import router as push_router
+from services.refill_tracker import router as refill_tracker_router
+from services.reorder import router as reorder_router
 from services.rewards_api import router as rewards_router
 from services.rx_uploads import router as rx_uploads_router
 from services.settings_api import router as settings_router
@@ -146,6 +151,9 @@ async def lifespan(app):
         from services.workflow_scheduler import ensure_scheduled_jobs, workflow_scheduler
         with _SL() as db:
             ensure_scheduled_jobs(db)
+            from services.newsroom_content import ensure_defaults as _newsroom_defaults
+            _newsroom_defaults(db)   # the default categories and the built-in series, once
+            db.commit()
             results = workflow_scheduler.run_due_jobs(db)
             if results:
                 print(f"[SCHEDULER] Ran due jobs: {results}", flush=True)
@@ -366,10 +374,15 @@ app.include_router(emergency_router)
 app.include_router(care_directory_router)
 app.include_router(erasure_router)
 app.include_router(student_requests_router)
+app.include_router(refill_tracker_router)
+app.include_router(push_router)
+app.include_router(reorder_router)
 app.include_router(clinical_router)
 app.include_router(medicine_master_router)
 app.include_router(medicine_info_router)
 app.include_router(newsroom_router)
+app.include_router(newsroom_autopilot_router)
+app.include_router(newsroom_content_router)
 app.include_router(lab_booking_router)
 app.include_router(rx_uploads_router)
 app.include_router(lab_results_router)

@@ -1,6 +1,6 @@
 # Student Kare — every screen
 
-268 screens: 252 on 10 canvas pages, plus new screens with no board yet (M2Reminders, M2Water and M2Steps; the 4 Find care screens; SetPasscode; the 2 medicine information screens; the 4 newsroom screens; M2Camps and PartnerCamps), designed in code in the Mobile 2.0 language. Each row links to a brief that lists every icon, picture, link and state the screen needs.
+270 screens: 252 on 10 canvas pages, plus new screens with no board yet (M2Reminders, M2Water and M2Steps; M2Refills and M2Reorder; the 4 Find care screens; SetPasscode; the 2 medicine information screens; the 4 newsroom screens; M2Camps and PartnerCamps), designed in code in the Mobile 2.0 language. Each row links to a brief that lists every icon, picture, link and state the screen needs.
 
 | # | Screen | What it is | Platform | Tier | Tickets | Icons | 3D | Glyphs | Pictures |
 |---|---|---|---|---|---|---|---|---|---|
@@ -280,10 +280,14 @@
 | 261 | [M2MedicineInfo](briefs/M2MedicineInfo.md) | Medicine information: look up by name or photo, who it is for | Phone 390x1800 | 1 | Medicine info | 18 | 0 | 0 | 0 |
 | 262 | [AdminMedicineInfo](briefs/AdminMedicineInfo.md) | Medicine information review (pharmacy and super admin console) | Web 1440x1100 | 1 | Medicine info | 10 | 0 | 0 | 0 |
 | | **New · Newsroom: News and Blog (2026-10-23, no canvas board)** | | | | | | | | |
-| 263 | [WebNewsroom](briefs/WebNewsroom.md) | Public /blog and /news lists: featured, categories, search, pages | Web 1440x1600 | 3 | Newsroom | 17 | 13 | 0 | 0 |
-| 264 | [WebPost](briefs/WebPost.md) | One post in its SK template, share links, related posts | Web 1440x2000 | 3 | Newsroom | 25 | 13 | 0 | 0 |
-| 265 | [AdminPosts](briefs/AdminPosts.md) | Super admin Posts editor with live preview; clinician health tip reviews | Web 1440x1600 | 3 | Newsroom | 32 | 13 | 0 | 0 |
+| 263 | [WebNewsroom](briefs/WebNewsroom.md) | Public /blog and /news lists: featured, types, categories, search, pages, share on every card | Web 1440x1600 | 3 | Newsroom | 38 | 17 | 0 | 0 |
+| 264 | [WebPost](briefs/WebPost.md) | One post in its SK template, share bar, crisis lines, series line, related posts | Web 1440x2000 | 3 | Newsroom | 41 | 17 | 0 | 0 |
+| 265 | [AdminPosts](briefs/AdminPosts.md) | Super admin Content: posts, review (precision), series, categories, sources, autopilot, share kit, analytics | Web 1440x1600 | 3 | Newsroom | 62 | 17 | 0 | 0 |
 | 266 | [M2WhatsNew](briefs/M2WhatsNew.md) | What's new: product update posts, from Profile | Phone 390x1200 | 3 | Newsroom | 5 | 3 | 0 | 0 |
+| 271 | [WebSeries](briefs/WebSeries.md) | Public /series and /series/:slug: series cards, a series and its episodes | Web 1440x1600 | 3 | Newsroom | 38 | 17 | 0 | 0 |
 | | **New · Health camp booking (2026-10-23, no canvas board)** | | | | | | | | |
 | 267 | [M2Camps](briefs/M2Camps.md) | Health camps: book a slot, waitlist, change or cancel, booking reference, camp day | Phone 390x1600 | 2 | Health camps | 8 | 0 | 0 | 0 |
 | 268 | [PartnerCamps](briefs/PartnerCamps.md) | Partner console Health camps: propose a camp, counts per slot, CSV (shares the CampusCamps board) | Web 1440x1024 | 3 | Health camps | 7 | 1 | 0 | 0 |
+| | **New · Refill reminders and one-tap reorder (2026-10-23, no canvas board)** | | | | | | | | |
+| 269 | [M2Refills](briefs/M2Refills.md) | Refills: run-out dates from the student's own counts, reminders, snooze, "I still have some" | Phone 390x1600 | 2 | refill-reorder | 15 | 0 | 0 | 0 |
+| 270 | [M2Reorder](briefs/M2Reorder.md) | One-tap reorder: today's price and stock, prescription gate, back-in-stock, pay | Phone 390x1500 | 2 | refill-reorder | 17 | 0 | 0 | 0 |

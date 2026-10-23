@@ -53,6 +53,7 @@ import { MyRequestsRoute, NewRequestRoute } from '@/features/requests/views/Requ
 import { attachReturnPhoto } from '@/features/requests/views/attachReturnPhoto.web';
 import { DeleteAccountRoute } from '@/features/account/views/DeleteAccountView';
 import { NotificationSettingsRoute } from '@/features/notifications/views/NotificationSettingsView';
+import { webPushController } from '@/lib/webPush';
 import { SignInSecurityRoute } from '@/features/account/views/SignInSecurityView';
 import { RewardsRoute } from '@/features/rewards/views/RewardsView';
 import { LeaveCampusRoute } from '@/features/campus/views/LeaveCampusView';
@@ -68,11 +69,10 @@ import { useEffectivePartnerKind } from '../vendor/partnerPreview';
 import type { AccountRole } from '../../data/types/workflowTypes';
 import { usePhoneFrame } from '@/design-system/navigation/usePhoneFrame';
 import { StudentPhoneFrame } from './StudentPhoneFrame';
-import { AccountDetailsPage, DataExportPage, phoneBoardFor, safetyBoardFor, YourCareWebPage } from './PhoneBoards';
+import { AccountDetailsPage, DataExportPage, InsurancePage, NotificationsPage, phoneBoardFor, safetyBoardFor, YourCareWebPage } from './PhoneBoards';
 import { MoreHubBoard } from '@/features/account/views/MoreHubBoard';
 import { SearchPage, studentPhoneBoard } from '@/features/phoneKit/studentPhoneBoards';
 import { EmergencyHelplinesDialog } from '../../components/interface/InterfaceBar';
-import { NotificationCenterModal } from '../../components/health/NotificationCenterModal';
 import { AyushWidget, ayushWidgetShownOn } from '@/features/ayush/AyushWidget';
 import { PartnerPage } from '@/features/partner/PartnerPage';
 import '@/design-system/design-system.css';
@@ -80,7 +80,9 @@ import '@/design-system/design-system.css';
 const M2TrendsRoute = lazy(() => import('@/features/labResults/views/M2TrendsRoute').then(module => ({ default: module.M2TrendsRoute })));
 const M2ReportUploadRoute = lazy(() => import('@/features/labResults/views/M2ReportUploadRoute').then(module => ({ default: module.M2ReportUploadRoute })));
 const M2RemindersRoute = lazy(() => import('@/features/reminders/views/M2RemindersRoute').then(module => ({ default: module.M2RemindersRoute })));
+const M2RefillsRoute = lazy(() => import('@/features/refills/views/M2RefillsRoute').then(module => ({ default: module.M2RefillsRoute })));
 const M2WaterRoute = lazy(() => import('@/features/reminders/views/M2WaterRoute').then(module => ({ default: module.M2WaterRoute })));
+const M2VaccinesRoute = lazy(() => import('@/features/preventive/views/M2VaccinesRoute').then(module => ({ default: module.M2VaccinesRoute })));
 const M2CampsRoute = lazy(() => import('@/features/camp/views/M2CampsRoute').then(module => ({ default: module.M2CampsRoute })));
 const M2StepsRoute = lazy(() => import('@/features/steps/views/M2StepsRoute').then(module => ({ default: module.M2StepsRoute })));
 const M2LabsRoute = lazy(() => import('@/features/m2store/views/M2LabsRoute').then(module => ({ default: module.M2LabsRoute })));
@@ -130,9 +132,8 @@ const VendorRxReviewScreen = lazy(() => import('../vendor/VendorRxReviewScreen')
 const PartnerCampsScreen = lazy(() => import('@/features/partner/camps/PartnerCampsScreen').then(module => ({ default: module.PartnerCampsScreen })));
 const PartnerStaffScreen = lazy(() => import('../vendor/PartnerStaffScreen').then(module => ({ default: module.PartnerStaffScreen })));
 // Signed-in student web pages (canvas 3b, WP-08), drawn in the student web shell.
-const WebHomeView = lazy(() => import('@/features/studentweb/views/WebHomeView').then(module => ({ default: module.WebHomeView })));
-const WebDashboardView = lazy(() => import('@/features/studentweb/views/WebDashboardView').then(module => ({ default: module.WebDashboardView })));
-const WebOrdersView = lazy(() => import('@/features/studentweb/views/WebOrdersView').then(module => ({ default: module.WebOrdersView })));
+const M2HomeRoute = lazy(() => import('@/features/m2store/views/M2HomeRoute').then(module => ({ default: module.M2HomeRoute })));
+const WebOrdersHub = lazy(() => import('@/features/studentweb/views/WebOrdersHub').then(module => ({ default: module.WebOrdersHub })));
 const WebReorderView = lazy(() => import('@/features/studentweb/views/WebReorderView').then(module => ({ default: module.WebReorderView })));
 const WebAccountView = lazy(() => import('@/features/studentweb/views/WebAccountView').then(module => ({ default: module.WebAccountView })));
 const WebNotificationsRoute = lazy(() => import('@/features/studentweb/views/WebNotificationsView').then(module => ({ default: module.WebNotificationsRoute })));
@@ -215,7 +216,6 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
   const phoneFrame = usePhoneFrame();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [sosOpen, setSosOpen] = useState(false);
-  const [alertsOpen, setAlertsOpen] = useState(false);
   const [rememberDevice, setRememberDevice] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const mutation = useMutation();
@@ -332,15 +332,22 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
    */
   const studentWebPage = (): React.ReactNode => {
     if (user.role !== 'STUDENT') return null;
-    if (route === 'home') return <WebHomeView />;
+    // One home (founder decision, 23 Oct 2026): /home is retired for a student; Home is /health, as on the phone.
+    if (route === 'home') return <Navigate to="/health" replace />;
+    // Medications is Medicines today (founder decision, 23 Oct 2026).
+    if (route === 'medications') return <Navigate to="/health/medicines" replace />;
     if (route === 'buy-again') return <WebReorderView />;
     // No phone board yet: the web page reflows into the phone frame.
-    if (route === 'my-lab-tests') return <WebMyLabTestsView />;
+    // Above phone width My lab tests is the second tab of Orders (founder decision, 23 Oct 2026); the phone keeps its page.
+    if (route === 'my-lab-tests') return phoneFrame ? <WebMyLabTestsView /> : <Navigate to="/orders?view=lab-tests" replace />;
     if (route === 'report-insights') return <WebReportInsightsView />;
     if (phoneFrame) return null;
     switch (route) {
-      case 'health': return <WebDashboardView />;
-      case 'orders': return <WebOrdersView />;
+      // Home above phone width is Mobile 2.0 Home laid out wide (parity phase 2), as the phone draws it.
+      case 'health': return <M2HomeRoute wide />;
+      case 'orders': return <WebOrdersHub />;
+      // The one notifications inbox, opened from the bell: the phone's inbox in the page column.
+      case 'notifications': return <NotificationsPage />;
       case 'profile': return <WebAccountView />;
       case 'notification-settings': return <WebNotificationsRoute />;
       case 'shop': return <WebShopView />;
@@ -354,9 +361,14 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
       case 'leave-campus': return <WebLeaveCampusRoute />;
       case 'delete-account': return <WebDeleteAccountRoute />;
       // Mobile 2.0 Lab tests: the student shell had no lab tests page (its nav item had no route).
-      case 'lab-tests': return <M2LabsRoute />;
+      case 'lab-tests': return <M2LabsRoute wide />;
       // Mobile 2.0 Doctor consults: the shell's "Doctors" link stays in the shell (it used to open the public marketplace).
-      case 'care': return <M2ConsultsRoute />;
+      case 'care': return <M2ConsultsRoute wide />;
+      // Parity phase 2: the Mobile 2.0 boards laid out wide above phone width, as the phone and the app draw them.
+      case 'health-camp': return <M2CampsRoute wide />;
+      case 'preventive-care': return <M2VaccinesRoute wide />;
+      // Mobile 2.0 Insurance; its Manage opens the full insurance panel under it.
+      case 'insurance': return <InsurancePage wide />;
       // Mobile 2.0 My health (Tier 1 plan: M2Insights replaces YourCare's overview), in the page column like Trends.
       case 'your-care': return <M2InsightsRoute />;
       // Find care near you (WebFindCare above phone width): the same board, two columns.
@@ -365,6 +377,8 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
       case 'whats-new': return <M2WhatsNewRoute wide />;
       // Medicine information above phone width: the same screen, one wider column.
       case 'medicine-info': return <MedicineInfoRoute wide />;
+      case 'health/medicines': return <M2RemindersRoute wide />;
+      case 'health/water': return <M2WaterRoute wide />;
       default: return null;
     }
   };
@@ -381,8 +395,10 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
       // Mobile 2.0 My health (Tier 1): the same boards in the page column above phone width.
       case 'health/trends': return <M2TrendsRoute />;
       case 'health/report-upload': return <M2ReportUploadRoute />;
-      case 'health/medicines': return <M2RemindersRoute />;
-      case 'health/water': return <M2WaterRoute />;
+      case 'health/medicines': return <M2RemindersRoute wide={!phoneFrame} />;
+      // Restored: the #236 merge dropped this case (#235), leaving Refills unreachable on the web.
+      case 'health/refills': return <M2RefillsRoute />;
+      case 'health/water': return <M2WaterRoute wide={!phoneFrame} />;
       // Steps: the same board in the page column (a browser counts no steps; typed entry only).
       case 'health/steps': return <M2StepsRoute />;
       case 'account': return <AccountDetailsPage />;
@@ -399,7 +415,7 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
       case 'medications': return <MedicationPanel />;
       case 'health-camp': return <M2CampsRoute />;
       case 'notifications': return <NotificationInboxPanel />;
-      case 'notification-settings': return <NotificationSettingsRoute />;
+      case 'notification-settings': return <NotificationSettingsRoute device={webPushController} />;
       case 'security': return <SignInSecurityRoute />;
       case 'verify': return <IdentityVerifyView />;
       case 'rewards': return <RewardsRoute />;
@@ -454,9 +470,10 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
           account={{ fullName: user.fullName, university: user.university, role: user.role, isVerifiedStudent: user.isVerifiedStudent }}
           links={{
             open: {
-              account: () => open('account'), records: () => open('records'), orders: () => open('orders'), requests: () => open('my-requests'),
+              account: () => open('account'), records: () => open('records'), requests: () => open('my-requests'),
               notifications: () => open('notification-settings'), pass: () => open('pass'), verify: () => open('verify'), campus: () => open('digital-id'),
-              profile: () => open('profile'), permissions: () => open('permissions'), ayush: () => open('ayush'), crisis: () => open('sos'),
+              // Ayush is the pill nav's orb and Orders its own tab (founder decision, 23 Oct 2026): not repeated here.
+              profile: () => open('profile'), permissions: () => open('permissions'), crisis: () => open('sos'),
               plan: () => open('billing'), help: () => open('support'), joinClinician: () => open('clinicians/apply'), joinPartner: () => open('partnerships'),
               website: () => open('landing'),
             },
@@ -479,7 +496,8 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
         cartCount={cartCount}
         onNavigate={(target) => navigate(target)}
         onSos={() => setSosOpen(true)}
-        onAlerts={() => setAlertsOpen(true)}
+        onAlerts={() => navigate('notifications')}
+        onSearch={(query) => routerNavigate(`/shop?q=${encodeURIComponent(query)}`)}
         onSignOut={() => setConfirmSignOut(true)}
         signingOut={mutation.busy}
         signOutError={mutation.error || null}
@@ -488,7 +506,6 @@ export function WorkspaceScreen({ route }: { route: RoutePath }) {
         <Suspense fallback={<ScreenLoading />}><PageTransition key={route}>{content()}</PageTransition></Suspense>
       </StudentWebShell>
       {signOutDialog}
-      <NotificationCenterModal isOpen={alertsOpen} onClose={() => setAlertsOpen(false)} />
       {/* Ayush, floating (AyushWidget): never over crisis, SOS, the emergency card, checkout or Ayush itself. */}
       {ayushWidgetShownOn(route) ? <AyushWidget /> : null}
       {/* The same helplines dialog the app bar opened, unchanged: 112, Tele-MANAS and the campus SOS. */}

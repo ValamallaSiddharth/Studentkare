@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking } from 'react-native';
-import { LanguageProvider, useT } from '@/i18n';
+import * as Notifications from 'expo-notifications';
+import { LanguageProvider, useLanguage, useT } from '@/i18n';
 import { color } from '@/design-system/theme';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -10,6 +11,7 @@ import { NavigationProvider, useNavigate } from './navigation';
 import PreventiveCareScreen from './PreventiveCareScreen';
 import { CampScreen } from './CampScreen';
 import { RecordCaptureScreen } from './RecordCaptureScreen';
+import { RefillsScreen } from './M2RefillScreens';
 import { RemindersScreen, WaterScreen } from './M2ReminderScreens';
 import { AppearanceScreen } from './AppearanceScreen';
 import { applyAppearanceAndRestart } from './applyAppearance';
@@ -73,7 +75,8 @@ import {
 } from './M2HealthScreens';
 import { NativeSessionProvider, useNativeSession } from './session';
 import type { NativeSessionStatus } from './session';
-import { createLinking } from './linking';
+import { createLinking, pushLink } from './linking';
+import { createPushController, pathFromResponse, refreshPushRegistration } from './hardware/push';
 import { StudentHomeScreen } from './StudentHomeScreen';
 import { StudentShell } from './StudentTabBar';
 import { SessionCheckingScreen } from './SessionCheckingScreen';
@@ -130,6 +133,7 @@ export type RootStackParamList = {
   Profile: undefined;
   Programs: undefined;
   RefillRequest: undefined;
+  Refills: { id?: string; orderId?: string; itemId?: string } | undefined;
   ReportUpload: undefined;
   ReturnRequest: undefined;
   Rewards: undefined;
@@ -394,7 +398,12 @@ function LeaveCampusScreen() {
 
 function NotificationSettingsScreen() {
   const navigation = useNavigation();
-  return <BoardFrame><NotificationSettingsRoute links={{ back: () => navigation.goBack() }} /></BoardFrame>;
+  const t = useT();
+  const { lang } = useLanguage();
+  const langRef = useRef(lang);
+  langRef.current = lang;
+  const [device] = useState(() => createPushController(t, () => langRef.current));
+  return <BoardFrame><NotificationSettingsRoute device={device} links={{ back: () => navigation.goBack() }} /></BoardFrame>;
 }
 
 /**
@@ -421,7 +430,7 @@ function RootNavigator() {
       initialRouteName={held ? 'TwoFactorSetup' : signedIn ? 'Home' : 'Landing'}
       screenOptions={{ animation: 'none', headerTintColor: color.action }}
       layout={isStudent ? ({ state, navigation, children }) => (
-        <StudentShell currentRoute={state.routes[state.index]?.name ?? ''} navigate={(route) => navigation.navigate(route)}>
+        <StudentShell currentRoute={state.routes[state.index]?.name ?? ''} navigate={(route) => navigation.navigate(route)} onSos={() => navigation.navigate('Emergency')}>
           {children}
         </StudentShell>
       ) : undefined}
@@ -449,6 +458,8 @@ function RootNavigator() {
           <Stack.Screen name="CaptureRecord" component={CaptureRecordRoute} options={{ title: t('capture.title') }} />
           {/* Mobile 2.0 Medicines today and reminders (M2Reminders) and Water (M2Water): each draws its own header. */}
           <Stack.Screen name="MedicineReminders" component={RemindersScreen} options={{ title: t('m2r.meds.title'), headerShown: false }} />
+          {/* Refills (refill reminders + one-tap reorder): draws its own header. */}
+          <Stack.Screen name="Refills" component={RefillsScreen} options={{ title: t('refill.title'), headerShown: false }} />
           <Stack.Screen name="Water" component={WaterScreen} options={{ title: t('m2r.water.title'), headerShown: false }} />
           <Stack.Screen name="YourCare" component={YourCareRoute} options={{ title: t('tabbar.yourCare'), headerShown: false }} />
           <Stack.Screen name="More" component={MoreRoute} options={{ title: t('ws.tab.more') }} />
@@ -536,9 +547,35 @@ function LinkedNavigation({ children }: { children: React.ReactNode }) {
   const [linking] = useState(() => createLinking(
     () => statusRef.current,
     () => settled.current?.promise ?? Promise.resolve(),
-    () => Linking.getInitialURL(),
+    // A push tapped while the app was closed opens its screen; else the launch link.
+    async () => {
+      const path = pathFromResponse(await Notifications.getLastNotificationResponseAsync());
+      return path ? pushLink(path) : Linking.getInitialURL();
+    },
+    (listener) => {
+      const links = Linking.addEventListener('url', ({ url }) => listener(url));
+      const taps = Notifications.addNotificationResponseReceivedListener((response) => {
+        const path = pathFromResponse(response);
+        if (path) listener(pushLink(path));
+      });
+      return () => { links.remove(); taps.remove(); };
+    },
   ));
   return <NavigationProvider linking={linking} fallback={<SessionCheckingScreen />}>{children}</NavigationProvider>;
+}
+
+/**
+ * Signed in on a phone that already allows notifications (no prompt): register
+ * it for server pushes again, in the app's language.
+ */
+function PushRegistration(): null {
+  const { status } = useNativeSession();
+  const t = useT();
+  const { lang } = useLanguage();
+  useEffect(() => {
+    if (status === 'signedIn') void refreshPushRegistration(t, lang);
+  }, [status, t, lang]);
+  return null;
 }
 
 /**
@@ -552,6 +589,7 @@ export default function NativeApp() {
         <AppStoresProvider>
           <NativeSessionProvider>
             <SignedOutNotice />
+            <PushRegistration />
             <LinkedNavigation>
               <RootNavigator />
             </LinkedNavigation>

@@ -1,11 +1,12 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { Icon } from '@/design-system/icons';
 import type { SkIconName } from '@/design-system/icons';
 import { Banner, Button, ErrorState, OfflineBanner, Rise, Skeleton, TextField } from '@/design-system';
 import {
   Gradient, LiftCard, M2Card, M2Heading, M2_NAV_CLEARANCE, RoundButton, heroStops, m2Text, tileStops, useOwnPhoneChrome, webAttrs,
+  M2HeaderSos,
 } from '@/design-system/m2';
 import type { PressState, ServiceHue } from '@/design-system/m2';
 import { color, focusRing, font, fontWeight, radius, shadow, shadowStyle, size, space } from '@/design-system/theme';
@@ -384,6 +385,7 @@ export const M2ReportUploadView = observer(function M2ReportUploadView({ vm, sou
           <Text numberOfLines={1} style={styles.eyebrow}>{t('m2v.up.eyebrow')}</Text>
           <M2Heading level={1} style={styles.title}>{t('m2v.up.title')}</M2Heading>
         </View>
+        <M2HeaderSos />
       </View>
       <View style={styles.gutter}><StepBar stage={vm.stage} /></View>
       {!online ? <View style={styles.gutter}><OfflineBanner message={t('m2v.up.offline')} /></View> : null}
@@ -419,7 +421,7 @@ const styles = StyleSheet.create({
   sheetLine: { height: 5, borderRadius: radius.full },
   sources: { gap: space.s12 },
   source: { minHeight: 72, padding: space.s14, borderRadius: 22, flexDirection: 'row', alignItems: 'center', gap: space.s14, backgroundColor: color.surface, ...shadowStyle(shadow.card) },
-  sourceOff: { backgroundColor: color.neutralBg, shadowOpacity: 0, elevation: 0 },
+  sourceOff: { backgroundColor: color.neutralBg, ...(Platform.OS === 'web' ? { boxShadow: 'none' } : { shadowOpacity: 0, elevation: 0 }) },
   sourceTile: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   promise: { color: color.text2 },
   uploading: { flexDirection: 'row', alignItems: 'center', gap: space.s12 },

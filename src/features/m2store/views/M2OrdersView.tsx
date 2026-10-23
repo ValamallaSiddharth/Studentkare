@@ -55,6 +55,11 @@ export interface M2OrdersLinks extends OfflineLinks {
   details: (orderId: string) => void;
   /** Back to the list from one order's page. */
   allOrders: () => void;
+  /**
+   * Start a refill reminder from this order's product line (My health · Refills).
+   * Only ids go across; nothing about health comes back to this screen (Rule L).
+   */
+  refill?: (orderId: string, itemId: string) => void;
 }
 
 const TONE: Readonly<Record<PillTone, { bg: string; fg: string }>> = {
@@ -181,6 +186,8 @@ function PastCard({ order, links }: { order: LiveOrder; links: M2OrdersLinks }) 
   const ref = orderRef(order.id);
   const names = order.lines.map((l) => l.name).join(', ');
   const state = orderState(order);
+  // The first product the student was sold on this order (a refill counts one medicine).
+  const refillLine = order.lines.find((l) => l.kind === 'product' && l.status !== 'CANCELLED' && l.status !== 'DECLINED');
   return (
     <View style={styles.pastCard} testID={`m2-ord-past-${order.id}`}>
       <View style={styles.pastTop}>
@@ -194,6 +201,7 @@ function PastCard({ order, links }: { order: LiveOrder; links: M2OrdersLinks }) 
       <View style={styles.actions}>
         {hasGoods(order) ? <SmallButton primary role="link" label={t('m2.ord.buyAgain')} spoken={t('m2.ord.buyAgainSpoken', { name: names })} onPress={() => links.buyAgain(order)} testID={`m2-ord-again-${order.id}`} /> : null}
         {canReturn(order) ? <SmallButton role="link" label={t('m2.ord.return')} spoken={t('m2.ord.returnSpoken', { ref })} onPress={() => links.returnItem(order)} testID={`m2-ord-return-${order.id}`} /> : null}
+        {refillLine && links.refill ? <SmallButton role="link" label={t('refill.link.fromOrder')} spoken={t('refill.link.fromOrderSpoken', { ref })} onPress={() => links.refill?.(order.id, refillLine.itemId)} testID={`m2-ord-refill-${order.id}`} /> : null}
         {hasLab(order) ? <SmallButton role="link" label={t('m2.ord.reports')} spoken={t('m2.ord.reportsSpoken')} onPress={links.reports} testID={`m2-ord-reports-${order.id}`} /> : null}
         <SmallButton role="link" label={t('m2.ord.details')} spoken={t('m2.ord.detailsSpoken', { ref })} onPress={() => links.details(order.id)} />
       </View>
@@ -249,7 +257,7 @@ export const M2OrdersView = observer(function M2OrdersView({ vm, links, focusId 
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.content} testID="m2-orders-one">
         <M2Header backLabel={t('phone.track.allOrders')} onBack={links.allOrders} eyebrow={t('m2.ord.eyebrow')} title={order ? t('m2.ord.ref', { ref: orderRef(order.id) }) : t('phone.orders.title')}
-          trailing={<SosButton label={t('m2.sos')} spoken={t('m2.sosSpoken')} onPress={links.sos} />} />
+          sos={{ label: t('m2.sos'), spoken: t('m2.sosSpoken'), onPress: links.sos }} />
         <View style={styles.gutter}>
           {!order && loading ? <Skeleton label={t('phone.orders.loading')} lines={['60%', '100%', '80%']} /> : null}
           {!order && !loading ? (

@@ -8,12 +8,11 @@ import { LiveCartProvider, useLiveCart } from '@/data/contexts/LiveCartContext';
 import type { LiveCatalogItem, LiveOrder } from '@/data/types/workflowTypes';
 import { axeViolations, describeViolations } from '@/test/axe';
 import { ThemeProvider } from '@/theme/tokens/theme';
-import { WebDashboardView } from '../WebDashboardView';
 import { WebOrdersView } from '../WebOrdersView';
+import { WebOrdersHub } from '../WebOrdersHub';
 import { WebReorderView } from '../WebReorderView';
 import { WebAccountView } from '../WebAccountView';
 import { WebNotificationsRoute } from '../WebNotificationsView';
-import { WebHomeView } from '../WebHomeView';
 import { WebShopView } from '../shop/WebShopView';
 import { WebCheckoutView } from '../shop/WebCheckoutView';
 
@@ -63,60 +62,6 @@ const withCart = (ui: React.ReactElement) => <BrowserRouter><LiveCartProvider>{u
 beforeEach(() => { api.mockReset(); go.mockReset(); window.history.pushState({}, '', '/'); });
 afterEach(() => { vi.useRealTimers(); });
 
-const CLINICAL = /\/health\/readings|\/health\/metrics|\/records\/export|\/prescriptions|\/clinical/;
-
-describe('WebDashboard — Your Care', () => {
-  const dashboard = {
-    '/orders': { items: [order('unpaid1', 'REQUESTED', { paymentStatus: 'UNPAID' })] },
-    '/appointments': { items: [{ id: 'a1', slotStart: '2099-01-02T10:00:00Z', slotEnd: '', status: 'CONFIRMED' }] },
-    '/lab-orders': { items: [{ id: 'l1', status: 'IN_ANALYSIS', slotStart: null, collectionMode: 'HOME', createdAt: 0, updatedAt: 0, paymentStatus: 'PAID' }] },
-    '/records/shares': { items: [] },
-    '/health/documents': { items: [{}], total: 11 },
-  };
-
-  it('shows what needs doing from real records, never a score about the body', async () => {
-    serve(dashboard);
-    render(<WebDashboardView />);
-    await settle();
-    expect(screen.getByRole('heading', { level: 1, name: 'Your Care' })).toBeInTheDocument();
-    expect(screen.getByText('An order is waiting for payment')).toBeInTheDocument();
-    expect(screen.getByText(/No health score here/)).toBeInTheDocument();
-    expect(screen.getByText('11 documents')).toBeInTheDocument();
-    expect(screen.getByText('Doctor consult')).toBeInTheDocument();
-    expect(requested().some((path) => CLINICAL.test(path))).toBe(false);
-  });
-
-  it('opens Book something with real places to start', async () => {
-    serve(dashboard);
-    render(<WebDashboardView />);
-    await settle();
-    fireEvent.click(screen.getByRole('button', { name: 'Book something' }));
-    const dialog = screen.getByRole('dialog', { name: 'Book something' });
-    fireEvent.click(within(dialog).getByRole('button', { name: /Book a lab test/ }));
-    expect(go).toHaveBeenCalledWith('lab-tests');
-  });
-
-  it('first time: says nothing needs you yet and gives the next steps', async () => {
-    serve({ '/orders': { items: [] }, '/appointments': { items: [] }, '/lab-orders': { items: [] }, '/records/shares': { items: [] }, '/health/documents': { items: [], total: 0 } });
-    render(<WebDashboardView />);
-    await settle();
-    expect(screen.getByText('Nothing needs you yet')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Set up your emergency card' }));
-    expect(go).toHaveBeenCalledWith('emergency-card');
-  });
-
-  it('error: calm copy and a retry that loads again', async () => {
-    serve({ ...dashboard, '/orders': new Error('down') });
-    render(<WebDashboardView />);
-    await settle();
-    expect(screen.getByRole('alert')).toHaveTextContent('This is on our side, not yours.');
-    const before = api.mock.calls.length;
-    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
-    await settle();
-    expect(api.mock.calls.length).toBeGreaterThan(before);
-  });
-});
-
 describe('WebOrders — My orders', () => {
   it('lists orders with status words, tracks the active one and cancels only an untouched order', async () => {
     serve({ '/orders': (path: string, init?: RequestInit) => (init?.method === 'POST' ? {} : { items: [order('abcdef12xx', 'REQUESTED'), order('done000000', 'COMPLETED')], total: 2 }) });
@@ -132,6 +77,19 @@ describe('WebOrders — My orders', () => {
     await settle();
     fireEvent.click(screen.getByRole('button', { name: 'Reorder SK-DONE0000' }));
     expect(go).toHaveBeenCalledWith('buy-again');
+  });
+
+  it('has My lab tests as its second tab (founder decision, 23 Oct 2026), and opens it from ?view=lab-tests', async () => {
+    serve({ '/orders': { items: [], total: 0 }, '/lab-orders': { items: [] }, '/health/documents': { items: [] } });
+    window.history.pushState({}, '', '/orders');
+    render(<BrowserRouter><WebOrdersHub /></BrowserRouter>);
+    await settle();
+    const tabs = screen.getByTestId('orders-hub-tabs');
+    expect(within(tabs).getByRole('button', { name: 'Orders' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(within(tabs).getByRole('button', { name: 'My lab tests' }));
+    await settle();
+    expect(window.location.search).toBe('?view=lab-tests');
+    expect(screen.getByRole('heading', { level: 1, name: 'My lab tests' })).toBeInTheDocument();
   });
 
   it('has no cancel once the provider has accepted', async () => {
@@ -211,9 +169,9 @@ describe('WebNotifications', () => {
   it('changes a channel and saves it; safety stays always on', async () => {
     const prefs = { pushEnabled: true, emailEnabled: false, remindersEnabled: true, pickupLocationEnabled: false, ayushHistoryEnabled: false, timezone: 'Asia/Kolkata', quietStart: '23:00', quietEnd: '07:00' };
     serve({ '/notifications/preferences': (_path: string, init?: RequestInit) => (init?.method === 'PUT' ? JSON.parse(String(init.body)) : prefs) });
-    render(<WebNotificationsRoute />);
+    render(<WebNotificationsRoute device={null} />);
     await settle();
-    expect(screen.getAllByText('Always on').length).toBe(2);
+    expect(screen.getAllByText('Always on').length).toBe(1);
     const email = screen.getByRole('switch', { name: 'Email' });
     expect(email).toHaveAttribute('aria-checked', 'false');
     fireEvent.click(email);
@@ -223,15 +181,27 @@ describe('WebNotifications', () => {
     const put = api.mock.calls.find(([, init]) => init?.method === 'PUT');
     expect(put && JSON.parse(String(put[1]?.body))).toMatchObject({ emailEnabled: true, pickupLocationEnabled: false });
   });
-});
 
-describe('WebHome', () => {
-  it('searches into the shop’s results and claims no accreditation', () => {
-    render(<BrowserRouter><WebHomeView /></BrowserRouter>);
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search medicines, lab tests and doctors' }), { target: { value: 'vitamin d' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
-    expect(window.location.pathname + window.location.search).toBe('/shop?q=vitamin%20d');
-    expect(document.body.textContent).not.toMatch(/NABL|ABDM-linked|Live on 3 campuses/i);
+  it('draws each category with its channels, keeps safety on, and starts offers off', async () => {
+    const prefs = {
+      pushEnabled: true, emailEnabled: true, remindersEnabled: true, pickupLocationEnabled: false, ayushHistoryEnabled: false,
+      timezone: 'Asia/Kolkata', quietStart: '23:00', quietEnd: '07:00', marketingOptIn: false,
+      channels: { SAFETY: ['PUSH', 'WHATSAPP', 'EMAIL'], ORDERS: ['PUSH'] },
+      categories: [{ key: 'SAFETY', channels: ['PUSH', 'WHATSAPP', 'EMAIL'], locked: true }, { key: 'ORDERS', channels: ['PUSH'], locked: false }],
+    };
+    serve({ '/notifications/preferences': (_path: string, init?: RequestInit) => (init?.method === 'PUT' ? { success: true } : prefs) });
+    render(<WebNotificationsRoute device={null} />);
+    await settle();
+    expect(screen.getByRole('button', { name: 'App for Safety & account' })).toHaveAttribute('aria-pressed', 'true');
+    const orders = screen.getByRole('button', { name: 'App for Orders' });
+    fireEvent.click(orders);
+    expect(orders).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('img', { name: /Lock screen preview for Orders: Student Kare, You have an order update/ })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Partner offers' })).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await settle();
+    const put = api.mock.calls.find(([, init]) => init?.method === 'PUT');
+    expect(put && JSON.parse(String(put[1]?.body))).toMatchObject({ channels: { ORDERS: [] }, marketingOptIn: false });
   });
 });
 
@@ -270,7 +240,7 @@ describe('WebShop, search and product', () => {
     let units = 0;
     render(withCart(<><WebShopView /><CartProbe onCart={(n) => { units = n; }} /></>));
     await settle();
-    fireEvent.click(screen.getByRole('button', { name: 'Vitamin D3' }));
+    fireEvent.click(screen.getByTestId('m2w-card-a-open'));
     expect(screen.getByRole('heading', { level: 1, name: 'Vitamin D3' })).toBeInTheDocument();
     expect(screen.getByText('No ratings yet')).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/student reviews|Earn \d+ Kare points/);

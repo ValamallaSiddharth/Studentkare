@@ -24,6 +24,7 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from core import push_copy
 from core import workflow_models as M
 from core.rule_l import COMMERCE_ROLE, commerce_role_usable, rule_l_status
 from core.settings_registry import setting
@@ -37,6 +38,7 @@ from services import (
     medicine_master,
     ops_feed,
     payments,
+    push_dispatch,
     rewards,
     student_time,
     upload_files,
@@ -906,6 +908,9 @@ class OrderInput(StrictModel):
     items: list[CartLineInput] = Field(min_length=1, max_length=30)
     delivery: DeliveryInput
     requestedSlot: str = Field(default="", max_length=40)
+    # The total the student was shown (a reorder quote). When sent, an order whose
+    # live total differs is refused with PRICE_CHANGED: a stale price is never charged.
+    expectedTotalPaise: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def unique_items(self):
@@ -946,8 +951,12 @@ def place_order(body: OrderInput, idempotency_key: str = Header(..., min_length=
             except ValueError:
                 raise HTTPException(422, "Choose a future date and time for the service request.")
         items.append((item, line.quantity))
+    live_total = sum(item.price_paise * quantity for item, quantity in items)
+    if body.expectedTotalPaise is not None and body.expectedTotalPaise != live_total:
+        raise HTTPException(409, {"code": "PRICE_CHANGED", "message": "The price changed since you looked. Check the new total.",
+                                  "values": {"totalPaise": live_total}})
     order = M.Order(id=new_id(), account_id=user["id"], idempotency_key=idempotency_key, request_hash=request_hash,
-                    total_paise=sum(item.price_paise * quantity for item, quantity in items), delivery=body.delivery.model_dump(), requested_slot=body.requestedSlot, created_at=time.time(),
+                    total_paise=live_total, delivery=body.delivery.model_dump(), requested_slot=body.requestedSlot, created_at=time.time(),
                     # Stock is held until then for payment; 0 when no provider is connected.
                     payment_due_at=payments.payment_due_at_for_new_order(db))
     try:
@@ -1217,7 +1226,10 @@ def provider_requests(
     return {
         "items": [{**line_payload(line), "orderId": order.id, "customer": account.full_name, "contact": account.identifier,
                    "delivery": order.delivery, "requestedSlot": order.requested_slot, "createdAt": order.created_at,
-                   "paymentStatus": order.payment_status, "awaitingPayment": payments.order_awaits_payment(order)}
+                   # Only an open request can wait for payment: a cancelled or handled line never does
+                   # (the AWAITING_PAYMENT filter above already requires REQUESTED).
+                   "paymentStatus": order.payment_status,
+                   "awaitingPayment": line.status == "REQUESTED" and payments.order_awaits_payment(order)}
                   for line, order, account in rows],
         "total": total,
         "limit": limit,
@@ -1689,6 +1701,28 @@ def pending_campus(user=Depends(require_campus_admin), db: Session = Depends(wor
         rows = [(cv, account) for cv, account in rows if _campus_key(cv.university) == scope]
     return {"items": [{"accountId": cv.account_id, "fullName": account.full_name, "email": account.identifier,
                        "university": cv.university, "rollNumber": cv.roll_number, "status": cv.status} for cv, account in rows]}
+
+
+@router.get("/ops/campus/team")
+def campus_team(user=Depends(require_campus_admin), db: Session = Depends(workflow_db)):
+    """The campus Team board (CampusAdminTeam): the staff who act for the caller's campus.
+
+    ``GET /ops/accounts`` is super admin only, so a campus administrator got a 403
+    there. This read is scoped by ``campus_scope`` (fails closed with no campus),
+    lists only campus-scoped staff roles, and carries no student and no health
+    data: name, work contact, role, active and whether 2FA is on. Audited.
+    """
+    scope = campus_scope(user, db)
+    rows = db.scalars(select(M.Account).where(M.Account.role.in_(sorted(CAMPUS_SCOPED_ROLES)))
+                      .order_by(M.Account.role, M.Account.full_name)).all()
+    rows = [row for row in rows if scope is None or _campus_key(staff_campus_of(row)) == scope]
+    with_two_factor = set(db.scalars(select(M.TwoFactorSecret.account_id).where(
+        M.TwoFactorSecret.account_id.in_([row.id for row in rows]), M.TwoFactorSecret.enabled.is_(True))).all()) if rows else set()
+    audit(db, user, "CAMPUS_TEAM_VIEWED", scope or "ALL")
+    db.commit()
+    return {"items": [{"id": row.id, "fullName": row.full_name, "identifier": row.identifier, "role": row.role,
+                       "active": row.active, "twoFactorEnabled": row.id in with_two_factor,
+                       "campus": staff_campus_of(row)} for row in rows]}
 
 
 # --- Approved knowledge sources and the read-only care navigator ---
@@ -2576,17 +2610,26 @@ def leave_programme(programme_id: str, user=Depends(authenticated_user),
 @router.get("/notifications/preferences")
 def get_notification_preferences(user=Depends(authenticated_user), db: Session = Depends(workflow_db)):
     prefs = db.get(M.NotificationPreference, user["id"])
+    account = db.get(M.Account, user["id"])
+    sign_in = (account.channel or "").upper() if account else ""
+    # Per-category channels (core/push_copy.CATEGORIES) and the separate offers
+    # opt-in, which is off until the student turns it on.
+    matrix = {"channels": push_dispatch.channel_matrix(prefs, sign_in),
+              "categories": [{"key": c.key, "channels": list(c.channels), "locked": c.locked}
+                             for c in push_copy.CATEGORIES.values()],
+              "marketingOptIn": bool(prefs.marketing_opt_in) if prefs else False}
     if not prefs:
         # The two consents default off, so an account that has never opened
         # settings is treated as not having granted them.
         return {"emailEnabled": True, "pushEnabled": True, "remindersEnabled": True,
                 "pickupLocationEnabled": False, "ayushHistoryEnabled": False,
-                "timezone": setting(student_time.DEFAULT_TIMEZONE_KEY, db), "quietStart": "22:00", "quietEnd": "08:00"}
+                "timezone": setting(student_time.DEFAULT_TIMEZONE_KEY, db), "quietStart": "22:00", "quietEnd": "08:00",
+                **matrix}
     return {"emailEnabled": prefs.email_enabled, "pushEnabled": prefs.push_enabled, "remindersEnabled": prefs.reminders_enabled,
             "pickupLocationEnabled": prefs.pickup_location_enabled, "ayushHistoryEnabled": prefs.ayush_history_enabled,
             # "" means never chosen: the student follows the platform default.
             "timezone": prefs.timezone or setting(student_time.DEFAULT_TIMEZONE_KEY, db),
-            "quietStart": prefs.quiet_start, "quietEnd": prefs.quiet_end}
+            "quietStart": prefs.quiet_start, "quietEnd": prefs.quiet_end, **matrix}
 
 
 class NotificationPrefInput(StrictModel):
@@ -2603,6 +2646,14 @@ class NotificationPrefInput(StrictModel):
     # refused rather than truncated into a time it would misread.
     quietStart: str = Field(default="22:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     quietEnd: str = Field(default="08:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    # None keeps what is stored. A category left out keeps its stored (or
+    # default) channels; a channel the category does not offer is refused.
+    channels: dict[str, list[Literal["PUSH", "WHATSAPP", "EMAIL"]]] | None = None
+    # Partner offers by push. None keeps the stored choice (off by default).
+    marketingOptIn: bool | None = None
+    # Read-only (what GET describes); accepted so a client may send back what
+    # it read, and ignored.
+    categories: list[dict] | None = Field(default=None, max_length=20)
 
 
 @router.put("/notifications/preferences")
@@ -2625,6 +2676,24 @@ def set_notification_preferences(body: NotificationPrefInput, user=Depends(authe
         prefs.timezone = ""
     prefs.quiet_start = body.quietStart[:5]
     prefs.quiet_end = body.quietEnd[:5]
+    if body.channels is not None:
+        stored = dict(prefs.channels or {})
+        for key, picked in body.channels.items():
+            definition = push_copy.CATEGORIES.get(key)
+            if definition is None or any(c not in definition.channels for c in picked):
+                raise HTTPException(422, {"code": "BAD_CHANNELS", "message": "That channel can't be chosen for this kind of message."})
+            if definition.locked:
+                # Safety is always on everywhere: sending back what GET said is fine; changing it is not.
+                if set(picked) != set(definition.channels):
+                    raise HTTPException(422, {"code": "SAFETY_LOCKED", "message": "Safety messages can't be turned off."})
+                continue
+            stored[key] = sorted(set(picked))
+        prefs.channels = stored
+    if body.marketingOptIn is not None and body.marketingOptIn != bool(prefs.marketing_opt_in):
+        # Rule L: offers are a separate, audited opt-in, never based on health.
+        prefs.marketing_opt_in = body.marketingOptIn
+        prefs.marketing_opt_in_at = time.time()
+        audit(db, user, "MARKETING_PUSH_OPT_IN" if body.marketingOptIn else "MARKETING_PUSH_OPT_OUT", user["id"])
     if not body.ayushHistoryEnabled:
         # History off means the words are not kept — including those already kept.
         consent_ledger.clear_ayush_words(db, user["id"])
@@ -2967,10 +3036,11 @@ def rule_l_firewall_status(user=Depends(require_super_admin), db: Session = Depe
     status = rule_l_status(connection)
     usable = commerce_role_usable(connection)
     from services.lab_booking import COMMERCE_PATHS as LAB_BOOKING_COMMERCE_PATHS
+    from services.reorder import REORDER_COMMERCE_PATHS
     status["commercePaths"] = {
         "runAs": COMMERCE_ROLE if usable else "app role (sk_commerce not in force)",
         "failClosed": grants_required(),
-        "endpoints": list(RULE_L_COMMERCE_PATHS) + list(medicine_master.MEDICINE_COMMERCE_PATHS) + list(medicine_info.MEDICINE_INFO_COMMERCE_PATHS) + list(LAB_BOOKING_COMMERCE_PATHS),
+        "endpoints": list(RULE_L_COMMERCE_PATHS) + list(medicine_master.MEDICINE_COMMERCE_PATHS) + list(medicine_info.MEDICINE_INFO_COMMERCE_PATHS) + list(LAB_BOOKING_COMMERCE_PATHS) + list(REORDER_COMMERCE_PATHS),
     }
     return status
 

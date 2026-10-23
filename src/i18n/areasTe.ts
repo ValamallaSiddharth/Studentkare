@@ -6,6 +6,7 @@ import { adminTe } from './areas/admin';
 import { assistTe } from './areas/assist';
 import { authChannelsTe } from './areas/authChannels';
 import { authPasscodeTe } from './areas/authPasscode';
+import { autopilotTe } from './areas/autopilot';
 import { campsTe } from './areas/camps';
 import { campusBoardsTe } from './areas/campusBoards';
 import { campusConsoleTe } from './areas/campusConsole';
@@ -29,6 +30,7 @@ import { mobile2HealthTe } from './areas/mobile2health';
 import { mobile2OrdersTe } from './areas/mobile2Orders';
 import { mobile2Te } from './areas/mobile2';
 import { mobile2WebTe } from './areas/mobile2Web';
+import { newsroomContentTe } from './areas/newsroomContent';
 import { newsroomTe } from './areas/newsroom';
 import { onboardTe } from './areas/onboard';
 import { partnerConsoleTe } from './areas/partnerConsole';
@@ -38,6 +40,8 @@ import { payTe } from './areas/pay';
 import { phoneboardsTe } from './areas/phoneboards';
 import { phonestoreTe } from './areas/phonestore';
 import { privacyTe } from './areas/privacy';
+import { pushTe } from './areas/push';
+import { refillsTe } from './areas/refills';
 import { rewardsTe } from './areas/rewards';
 import { safetyTe } from './areas/safety';
 import { shopwebTe } from './areas/shopweb';
@@ -66,6 +70,7 @@ export const areasTe = {
   ...assistTe,
   ...authChannelsTe,
   ...authPasscodeTe,
+  ...autopilotTe,
   ...campsTe,
   ...campusBoardsTe,
   ...campusConsoleTe,
@@ -89,6 +94,7 @@ export const areasTe = {
   ...mobile2OrdersTe,
   ...mobile2Te,
   ...mobile2WebTe,
+  ...newsroomContentTe,
   ...newsroomTe,
   ...onboardTe,
   ...partnerConsoleTe,
@@ -98,6 +104,8 @@ export const areasTe = {
   ...phoneboardsTe,
   ...phonestoreTe,
   ...privacyTe,
+  ...pushTe,
+  ...refillsTe,
   ...rewardsTe,
   ...safetyTe,
   ...shopwebTe,

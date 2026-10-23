@@ -6,6 +6,7 @@ import { adminGovEn } from './areas/adminGov';
 import { assistEn } from './areas/assist';
 import { authChannelsEn } from './areas/authChannels';
 import { authPasscodeEn } from './areas/authPasscode';
+import { autopilotEn } from './areas/autopilot';
 import { campsEn } from './areas/camps';
 import { campusBoardsEn } from './areas/campusBoards';
 import { campusConsoleEn } from './areas/campusConsole';
@@ -29,6 +30,7 @@ import { mobile2En } from './areas/mobile2';
 import { mobile2HealthEn } from './areas/mobile2health';
 import { mobile2OrdersEn } from './areas/mobile2Orders';
 import { mobile2WebEn } from './areas/mobile2Web';
+import { newsroomContentEn } from './areas/newsroomContent';
 import { newsroomEn } from './areas/newsroom';
 import { onboardEn } from './areas/onboard';
 import { partnerConsoleEn } from './areas/partnerConsole';
@@ -38,6 +40,8 @@ import { payEn } from './areas/pay';
 import { phoneboardsEn } from './areas/phoneboards';
 import { phonestoreEn } from './areas/phonestore';
 import { privacyEn } from './areas/privacy';
+import { pushEn } from './areas/push';
+import { refillsEn } from './areas/refills';
 import { rewardsEn } from './areas/rewards';
 import { safetyEn } from './areas/safety';
 import { shopwebEn } from './areas/shopweb';
@@ -66,6 +70,7 @@ export const areasEn = {
   ...assistEn,
   ...authChannelsEn,
   ...authPasscodeEn,
+  ...autopilotEn,
   ...campsEn,
   ...campusBoardsEn,
   ...campusConsoleEn,
@@ -89,6 +94,7 @@ export const areasEn = {
   ...mobile2HealthEn,
   ...mobile2OrdersEn,
   ...mobile2WebEn,
+  ...newsroomContentEn,
   ...newsroomEn,
   ...onboardEn,
   ...partnerConsoleEn,
@@ -98,6 +104,8 @@ export const areasEn = {
   ...phoneboardsEn,
   ...phonestoreEn,
   ...privacyEn,
+  ...pushEn,
+  ...refillsEn,
   ...rewardsEn,
   ...safetyEn,
   ...shopwebEn,

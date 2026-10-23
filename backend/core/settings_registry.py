@@ -161,6 +161,7 @@ ORDERED_PAIRS: tuple[tuple[str, str], ...] = (
     ("wellness.water_reminder_interval_minutes_default", "wellness.water_reminder_interval_minutes_max"),
     ("wellness.water_reminder_start_hour_default", "wellness.water_reminder_end_hour_default"),
     ("wellness.weight_kg_min", "wellness.weight_kg_max"),
+    ("refill.remind_days_before_default", "refill.remind_days_before_max"),
     ("wellness.height_cm_min", "wellness.height_cm_max"),
     ("wellness.bmi_cutoff_low", "wellness.bmi_cutoff_mid"),
     ("wellness.bmi_cutoff_mid", "wellness.bmi_cutoff_high"),
@@ -169,6 +170,7 @@ ORDERED_PAIRS: tuple[tuple[str, str], ...] = (
     ("medicine_info.adult_from_years", "medicine_info.older_adult_from_years"),
     ("medicine_info.child_from_years", "medicine_info.ask_doctor_below_years"),
     ("platform.api_rate_per_account_per_minute", "platform.api_rate_per_ip_per_minute"),
+    ("autopilot.news_window_start_hour", "autopilot.news_window_end_hour"),
 )
 
 
@@ -215,6 +217,10 @@ declare("shop.cart_line_max", INT, 10, area="shop", unit="units", minimum=1, max
 # Mobile 2.0 "Call to order" / "Call to book" (M2Home, M2Medicines, M2Labs). No
 # order line exists yet, so the default is empty and the app says "not
 # available yet"; the client dials it only when it is a plain phone number.
+declare("shop.generics_highlight_enabled", BOOL, False, area="shop", public=True,
+        description="Whether Home and the shop carry the Generics highlight (same composition, a lower price, the "
+                    "pharmacist confirms the swap). Off until the generics programme is live, so no claim is shown that "
+                    "the platform cannot back.")
 declare("shop.order_line_phone", STR, "", area="shop", unit="phone number (digits, optional leading +)", public=True,
         description="The order line students call to order medicines or book a lab test. Empty shows the call "
                     "buttons as not available yet.")
@@ -273,6 +279,179 @@ declare("newsroom.image_max_bytes", INT, 5 * 1024 * 1024, area="newsroom", unit=
 declare("newsroom.words_per_minute", INT, 200, area="newsroom", unit="words per minute", minimum=100, maximum=400,
         public=True, description="Reading speed used for a post's reading time.")
 
+# --- content autopilot (services/newsroom_autopilot.py) ------------------------------
+# Off until a super admin turns a lane on. News: up to news_per_day short summaries of
+# new items from the allow-listed official feeds below, each naming and linking its
+# source. Blog: posts_per_week drafts on the configured days from the topic plan (built
+# only from approved knowledge sources) and a round-up of the week's What's new posts.
+# Health content waits for a clinician only while content.health_requires_clinician is on (off by default,
+# Krishna 2026-10-23); otherwise only precise auto posts go out and the rest wait in Content, Review.
+# Times are in platform.default_timezone (IST).
+declare("autopilot.kill_switch", BOOL, False, area="autopilot",
+        description="Emergency stop for the content autopilot: while true it fetches, drafts and publishes nothing.")
+declare("autopilot.news_enabled", BOOL, False, area="autopilot",
+        description="Autopilot News lane: summarise new items from the allow-listed official feeds.")
+declare("autopilot.blog_enabled", BOOL, False, area="autopilot",
+        description="Autopilot Blog lane: draft the week's blog posts from the topic plan.")
+declare("autopilot.news_auto_publish", BOOL, True, area="autopilot",
+        description="Publish autopilot news at once when it passes the precision gate (content.precision_threshold). "
+                    "Imprecise news always waits in Content, Review. Off: every news draft waits for an editor.")
+declare("autopilot.blog_auto_publish", BOOL, False, area="autopilot",
+        description="Publish autopilot stories and precise health tips on their day (a health tip waits for a clinician "
+                    "while content.health_requires_clinician is on).")
+declare("autopilot.use_model", BOOL, True, area="autopilot",
+        description="Let the configured on-prem model write the headline and summary (checked against the source; "
+                    "anything not grounded falls back to the source's own words).")
+declare("autopilot.news_per_day", INT, 3, area="autopilot", unit="posts per day", minimum=1, maximum=5,
+        description="Most autopilot news posts in one day.")
+declare("autopilot.news_min_gap_minutes", INT, 120, area="autopilot", unit="minutes", minimum=0, maximum=720,
+        description="Least time between two autopilot news posts, so a day's posts are spread out.")
+declare("autopilot.news_window_start_hour", INT, 7, area="autopilot", unit="hour of day (IST)", minimum=0, maximum=23,
+        description="Autopilot news posts only from this hour.")
+declare("autopilot.news_window_end_hour", INT, 21, area="autopilot", unit="hour of day (IST)", minimum=1, maximum=24,
+        description="Autopilot news posts only before this hour.")
+declare("autopilot.news_max_age_hours", INT, 72, area="autopilot", unit="hours", minimum=6, maximum=336,
+        description="Oldest source item the autopilot still summarises.")
+declare("autopilot.news_min_relevance", INT, 1, area="autopilot", unit="keyword matches", minimum=0, maximum=10,
+        description="Fewest student-relevance keyword matches an item needs to be posted.")
+declare("autopilot.relevance_keywords", STR,
+        "student,students,campus,college,university,youth,young people,adolescent,exam,mental health,sleep,"
+        "nutrition,hydration,heat,heatwave,air quality,vaccine,vaccination,immunization,dengue,malaria,"
+        "tuberculosis,hygiene,physical activity,sport,injury,tobacco,alcohol,road safety,drug alert,recall,"
+        "not of standard quality,outbreak,advisory,scholarship,education,ugc",
+        area="autopilot", unit="comma-separated words and phrases",
+        description="What makes an item student-relevant: each word or phrase found counts once (twice in the title).")
+declare("autopilot.block_words", STR,
+        "patient,deceased,died,death of,obituary,victim,suicide,murder,rape,assault,arrested,accused,named",
+        area="autopilot", unit="comma-separated words and phrases",
+        description="An item or a written summary containing any of these is never posted (people, deaths, crime).")
+declare("autopilot.headline_max_chars", INT, 90, area="autopilot", unit="characters", minimum=30, maximum=160,
+        description="Longest autopilot headline.")
+declare("autopilot.summary_max_chars", INT, 300, area="autopilot", unit="characters", minimum=80, maximum=300,
+        description="Longest autopilot summary (two or three sentences).")
+declare("autopilot.max_posts_per_day", INT, 6, area="autopilot", unit="posts per day", minimum=1, maximum=20,
+        description="Hard cap on everything the autopilot drafts or publishes in one day, both lanes together.")
+declare("autopilot.blog_posts_per_week", INT, 2, area="autopilot", unit="posts per week", minimum=0, maximum=7,
+        description="Autopilot blog posts a week (one per configured day, in order).")
+declare("autopilot.blog_days", STR, "MON,THU", area="autopilot", unit="comma-separated MON..SUN",
+        description="The days the autopilot blog posts go out.")
+declare("autopilot.blog_hour", INT, 10, area="autopilot", unit="hour of day (IST)", minimum=0, maximum=23,
+        description="The hour the autopilot blog posts go out on their day.")
+declare("autopilot.blog_lead_hours", INT, 24, area="autopilot", unit="hours", minimum=1, maximum=96,
+        description="How long before its time a blog post is drafted (time for a clinician to review a health tip).")
+declare("autopilot.blog_topics", STR,
+        "sleep,exam stress,hydration,campus food,sports injuries,heat and sun,eye strain,handwashing,"
+        "physical activity,mental wellbeing",
+        area="autopilot", unit="comma-separated topics",
+        description="The rotating topic plan. A topic is drafted only from approved knowledge sources about it.")
+declare("autopilot.fetch_timeout_seconds", INT, 10, area="autopilot", unit="seconds", minimum=2, maximum=30,
+        description="How long the autopilot waits for one feed.")
+declare("autopilot.fetch_max_bytes", INT, 2 * 1024 * 1024, area="autopilot", unit="bytes", minimum=64 * 1024,
+        maximum=8 * 1024 * 1024, description="Largest feed the autopilot reads.")
+declare("autopilot.source_failures_before_alert", INT, 3, area="autopilot", unit="failed fetches", minimum=1,
+        maximum=20, description="Failed fetches in a row before a feed raises an ops alert.")
+declare("autopilot.log_size", INT, 50, area="autopilot", unit="entries", minimum=10, maximum=200,
+        description="Entries in the Autopilot tab's log and queue.")
+declare("autopilot.fetch_interval_minutes", INT, 30, area="autopilot", unit="minutes", minimum=15, maximum=240,
+        description="How often the aggregator reads the allow-listed feeds, round the clock (the job runs every 15 "
+                    "minutes; a pass reads the feeds only when this much time has gone by). Posting stays inside the "
+                    "news window.")
+# The allow-list of feeds. The publisher, its hosts and what was verified are in
+# backend/content/newsroom/autopilot.json; a feed address must stay on its hosts.
+# Verified from the network on 2026-10-23: who_news (RSS 2.0 with summaries) and
+# pib_releases (RSS 2.0, titles and links only, no dates; left off). No public feed
+# was found for the others: their address is empty until one is confirmed.
+AUTOPILOT_SOURCES: tuple[tuple[str, str, bool], ...] = (
+    ("cdsco_alerts", "", False),
+    ("icmr", "", False),
+    ("mohfw", "", False),
+    ("pib_releases", "https://www.pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3", False),
+    ("ugc_notices", "", False),
+    ("who_news", "https://www.who.int/rss-feeds/news-english.xml", True),
+)
+for _source, _url, _on in AUTOPILOT_SOURCES:
+    declare(f"autopilot.source.{_source}.url", STR, _url, area="autopilot", unit="https URL on the source's hosts",
+            description=f"Feed address (RSS or Atom) of the autopilot source {_source}. Empty: not verified yet.")
+    declare(f"autopilot.source.{_source}.enabled", BOOL, _on, area="autopilot",
+            description=f"Whether the autopilot reads the source {_source}.")
+
+# --- content module: categories, series, precision gate, share kit (services/newsroom_content.py,
+# newsroom_precision.py, newsroom_series.py) --------------------------------------------------------
+# Health-advice posts (an advice template in a clinical category, and every health tip). Decision,
+# Krishna as named reviewer, 2026-10-23 (docs/plans/newsroom-content-2026-10-23.md): health series posts
+# do not need a clinician, so the default is off: an auto post that passes the precision gate goes out,
+# an imprecise one waits for the super admin. This replaces #229's "every health tip needs a clinician"
+# for auto posts. On: they wait for a clinician however precise. A health post typed by the team is never
+# scored, so it still needs a clinician either way. Crisis words always send a post to review.
+declare("content.health_requires_clinician", BOOL, False, area="content",
+        description="Health-advice auto posts (health series, health tips, explainers, myths, quick cards in a "
+                    "clinical category) wait for a clinician's approval even when they pass the precision gate. "
+                    "Off (Krishna, 2026-10-23): precise ones go out, imprecise ones wait in Content, Review.")
+declare("content.precision_threshold", INT, 100, area="content", unit="percent of sentences", minimum=50, maximum=100,
+        description="Least share of an auto post's sentences that must be traceable to its source for it to be "
+                    "approved without a person. Any failed source check (not allow-listed, too old, undated) is 0.")
+declare("content.precision_sentence_min_support", INT, 70, area="content", unit="percent of words", minimum=50,
+        maximum=100, description="Least share of a sentence's content words found in the source for the sentence "
+                                 "to count as traceable when it is not copied word for word.")
+declare("content.advice_phrases", STR,
+        "you should take,should take,take a dose,dose of,dosage,mg,milligram,tablet,tablets,capsule,capsules,"
+        "syrup,injection,cure,cures,treats,diagnose,diagnosis,diagnosed with,you have,prescribe,prescription,"
+        "stop taking,start taking,increase your dose,reduce your dose,self-medicate",
+        area="content", unit="comma-separated words and phrases",
+        description="Medical-advice language: an auto post containing any of these never goes out without a person "
+                    "(no dosing, no diagnosis, no treatment advice).")
+declare("content.unverifiable_phrases", STR,
+        "studies show,research shows,experts say,doctors say,scientists agree,it is proven,proven to,guaranteed,"
+        "miracle,100%,always works,never fails,best ever,the best,number one,secret",
+        area="content", unit="comma-separated words and phrases",
+        description="Claims that need a source of their own: a sentence with one of these fails the gate unless "
+                    "the source itself says it.")
+declare("content.crisis_phrases", STR,
+        "suicide,suicidal,self-harm,self harm,kill myself,end my life,overdose,want to die,hopeless,cutting",
+        area="content", unit="comma-separated words and phrases",
+        description="Crisis words: an auto post containing any of these never goes out on its own; it waits for a "
+                    "person in Content, Review, whatever its score.")
+declare("content.duplicate_similarity", INT, 60, area="content", unit="percent of title words", minimum=30,
+        maximum=100, description="How alike two titles must be for the composer to warn of a duplicate topic.")
+declare("content.duplicate_window_days", INT, 60, area="content", unit="days", minimum=1, maximum=365,
+        description="How far back the composer looks for a post on the same topic.")
+declare("content.share_utm_enabled", BOOL, True, area="content", public=True,
+        description="Add utm_source (the network), utm_medium and utm_campaign to shared post links.")
+declare("content.share_utm_medium", STR, "social", area="content", unit="utm_medium value", public=True,
+        description="utm_medium on shared post links.")
+declare("content.share_utm_campaign", STR, "newsroom", area="content", unit="utm_campaign value", public=True,
+        description="utm_campaign on shared post links (a series adds its own slug).")
+declare("content.caption_hashtags_max", INT, 5, area="content", unit="hashtags", minimum=0, maximum=10,
+        description="Most hashtags in a LinkedIn caption from the share kit (the category's, then the brand's).")
+declare("content.caption_brand_hashtag", STR, "StudentKare", area="content", unit="hashtag without #",
+        description="The brand hashtag the share kit adds to every caption.")
+declare("content.stats_enabled", BOOL, True, area="content", public=True,
+        description="Count post views and shares (counts only: no reader, address or device is kept).")
+declare("content.list_max", INT, 200, area="content", unit="posts", minimum=50, maximum=1000,
+        description="Most posts one Content list or Analytics view loads.")
+declare("series.lead_hours", INT, 24, area="content", unit="hours", minimum=1, maximum=96,
+        description="How long before its slot a series episode is drafted (time for a clinician to review it).")
+declare("series.auto_publish", BOOL, True, area="content",
+        description="Schedule a series episode that passes the precision gate without a person (health episodes "
+                    "still follow content.health_requires_clinician). Off: every episode waits for the super admin.")
+declare("series.motivation.enabled", BOOL, False, area="content",
+        description="Monday Motivation: draft an episode from the series' own library of lines and attributed "
+                    "public-domain quotes on its days. Off until a super admin turns it on.")
+declare("series.motivation.days", STR, "MON", area="content", unit="comma-separated MON..SUN",
+        description="The days Monday Motivation goes out.")
+declare("series.motivation.hour", INT, 8, area="content", unit="hour of day (IST)", minimum=0, maximum=23,
+        description="The hour Monday Motivation goes out on its day.")
+declare("series.health.enabled", BOOL, False, area="content",
+        description="The health series: draft an episode from approved knowledge on its days, cycling the rota. "
+                    "Off until a super admin turns it on.")
+declare("series.health.days", STR, "MON,WED,FRI", area="content", unit="comma-separated MON..SUN",
+        description="The days the health series goes out.")
+declare("series.health.hour", INT, 17, area="content", unit="hour of day (IST)", minimum=0, maximum=23,
+        description="The hour the health series goes out on its day.")
+declare("series.health.rota", STR, "mental-health,womens-health,common-health", area="content",
+        unit="comma-separated category ids",
+        description="The categories the health series cycles through, one per episode, in order.")
+
 # --- medicine information (services/medicine_info.py; plan tier1-medicine-info-2026-10-22) ---
 # The "Who is it for?" age bands. The band a person picks stays on the device;
 # these only say where each band starts. Below ask_doctor_below_years the screen
@@ -317,6 +496,55 @@ declare("meds.reminder_minute_evening", INT, 1200, area="meds", unit="minutes af
         maximum=1439, public=True, description="Time of the 'evening' medicine reminder slot on the phone.")
 declare("meds.reminder_minute_night", INT, 1320, area="meds", unit="minutes after midnight", minimum=0,
         maximum=1439, public=True, description="Time of the 'night' medicine reminder slot on the phone.")
+# Refill reminders (services/refill_tracker.py). The run-out date is counted
+# from the student's own pack size and dose schedule: pills on hand divided by
+# pills a day. Nothing here is dosing advice; these only bound what can be typed
+# and when the reminder goes out. Quiet hours are the student's own
+# (care_notification_preferences), applied by the outbox.
+declare("refill.remind_days_before_default", INT, 3, area="refill", unit="days", minimum=1, maximum=30, public=True,
+        description="How many days before a medicine runs out the refill reminder goes out, unless the student picks another.")
+declare("refill.remind_days_before_max", INT, 14, area="refill", unit="days", minimum=1, maximum=60, public=True,
+        description="Most days before running out a student may ask to be reminded.")
+declare("refill.remind_minute_local", INT, 600, area="refill", unit="minutes after midnight", minimum=0,
+        maximum=1439, public=True, description="Local time of day a refill reminder is due (quiet hours still apply).")
+declare("refill.snooze_days", INT, 1, area="refill", unit="days", minimum=1, maximum=14, public=True,
+        description="How long Snooze holds a refill reminder back.")
+declare("refill.pack_units_max", INT, 1000, area="refill", unit="units per pack", minimum=1, maximum=100000,
+        public=True, description="Largest pack size (tablets, capsules, doses) a student can enter.")
+declare("refill.units_per_dose_max", INT, 20, area="refill", unit="units per dose", minimum=1, maximum=100,
+        public=True, description="Most units a student can enter for one dose (a count, never advice).")
+declare("refill.packs_max", INT, 20, area="refill", unit="packs", minimum=1, maximum=100, public=True,
+        description="Most packs one refill can count.")
+declare("refill.tracked_max", INT, 30, area="refill", unit="medicines", minimum=1, maximum=200,
+        description="Most medicines one student can track for refills.")
+
+# --- push notifications (services/push_dispatch.py, services/push_api.py) ----
+# Safety pushes (SOS answers, account security) ignore the cap, coalescing and
+# quiet hours; everything else respects all three.
+declare("push.rate_cap_per_hour", INT, 6, area="push", unit="pushes per hour", minimum=1, maximum=60,
+        description="Most non-safety pushes one account gets in any hour; the rest wait for the next hour.")
+declare("push.coalesce_seconds", INT, 120, area="push", unit="seconds", minimum=0, maximum=3600,
+        description="A second push of the same category to the same account within this window is folded into the first.")
+declare("push.max_attempts", INT, 4, area="push", unit="attempts", minimum=1, maximum=10,
+        description="Sends tried for one push before it is marked failed.")
+declare("push.retry_base_seconds", INT, 60, area="push", unit="seconds", minimum=5, maximum=3600,
+        description="Wait before the first retry of a push; each later retry waits twice as long.")
+declare("push.receipt_delay_seconds", INT, 900, area="push", unit="seconds", minimum=60, maximum=86400,
+        description="How long after a phone push is accepted its delivery receipt is fetched from Expo.")
+declare("push.batch_max", INT, 500, area="push", unit="pushes per pass", minimum=10, maximum=5000,
+        description="Most pushes one dispatch pass sends.")
+declare("push.ttl_seconds", INT, 86400, area="push", unit="seconds", minimum=60, maximum=2419200,
+        description="How long the push service keeps an undelivered push for a phone that is off.")
+declare("push.devices_per_account_max", INT, 10, area="push", unit="devices", minimum=1, maximum=50,
+        description="Most phones and browsers one account can receive pushes on; registering another retires the oldest.")
+declare("push.inactive_device_days", INT, 120, area="push", unit="days", minimum=7, maximum=730,
+        description="A device not seen for this long stops receiving pushes until the app opens again.")
+declare("push.announcement_title_max", INT, 60, area="push", unit="characters", minimum=10, maximum=120, public=True,
+        description="Longest title of a super-admin announcement push.")
+declare("push.announcement_body_max", INT, 160, area="push", unit="characters", minimum=20, maximum=400, public=True,
+        description="Longest body of a super-admin announcement push.")
+declare("push.announcement_schedule_max_days", INT, 30, area="push", unit="days", minimum=1, maximum=180, public=True,
+        description="How far ahead an announcement can be scheduled.")
 
 # --- student web (signed in) ----------------------------------------------
 declare("studentweb.report_ready_days", INT, 14, area="studentweb", unit="days", minimum=1, maximum=90, public=True,
@@ -490,8 +718,9 @@ declare("ayush.min_term_overlap", FLOAT, 0.5, area="ayush", unit="share of subje
 # --- platform --------------------------------------------------------------
 # A name zoneinfo does not know (in an override or a student's preference) is
 # never used: the student's day then falls back to this declared default.
-declare("platform.default_timezone", STR, "Asia/Kolkata", area="platform", unit="IANA timezone",
-        description="Timezone for a student's calendar day when they have not set a valid one.")
+declare("platform.default_timezone", STR, "Asia/Kolkata", area="platform", unit="IANA timezone", public=True,
+        description="Timezone for a student's calendar day when they have not set a valid one, and for the "
+                    "newsroom's schedules (the composer's publish-later time, series and autopilot slots).")
 # General API rate limits (core/rate_limiter.py, founder decision 2026-10-22). A
 # signed-in request counts against its session's budget and against its network
 # address's ceiling; a request without a session against the ceiling only. One

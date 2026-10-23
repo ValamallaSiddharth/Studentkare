@@ -29,10 +29,12 @@ export interface M2RemindersLinks {
   /** The existing add-a-medicine form (web only; the app has none). */
   addMedicine?: () => void;
   openSettings?: () => void;
+  /** Refills (refill reminders and reorder), when the host offers it. */
+  refills?: () => void;
 }
 
-export const M2RemindersView = observer(function M2RemindersView({ vm, reminders, online, links }: {
-  vm: MedsTodayViewModel; reminders?: MedicineRemindersViewModel; online: boolean; links: M2RemindersLinks;
+export const M2RemindersView = observer(function M2RemindersView({ vm, reminders, online, links, wide = false }: {
+  vm: MedsTodayViewModel; reminders?: MedicineRemindersViewModel; online: boolean; links: M2RemindersLinks; wide?: boolean;
 }) {
   const t = useT();
   useOwnPhoneChrome();
@@ -105,10 +107,10 @@ export const M2RemindersView = observer(function M2RemindersView({ vm, reminders
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} testID="m2-reminders">
+    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, wide ? styles.contentWide : null]} testID="m2-reminders">
       {header}
       <Rise style={styles.gutter}>
-        <Gradient colors={heroStops('teal')} angle={150} style={styles.hero} testID="m2-rem-hero">
+        <Gradient colors={heroStops('teal')} angle={150} style={[styles.hero, wide ? styles.heroWide : null]} testID="m2-rem-hero">
           <Text style={styles.heroEyebrow}>{t('m2r.meds.heroEyebrow')}</Text>
           {headline ? <Text style={styles.heroLine} aria-live="polite" testID="m2-rem-headline">{headline}</Text> : null}
           {!vm.today.data && vm.today.phase === 'loading' ? <Skeleton label={t('m2r.meds.loading')} lines={['70%']} /> : null}
@@ -128,6 +130,19 @@ export const M2RemindersView = observer(function M2RemindersView({ vm, reminders
           <Icon name="chevron-right" size={16} color={color.text3} strokeWidth={2.4} />
         </Pressable>
       </Rise>
+      {links.refills ? (
+        <Rise index={3} style={styles.gutter}>
+          <Pressable role="link" accessibilityRole="link" {...cardLabel(t('refill.link.fromMeds'))} onPress={links.refills}
+            testID="m2-rem-refills" style={({ focused }: PressState) => [styles.link, focused ? focusRing : null]}>
+            <View style={[styles.linkTile, styles.refillTile]}><Icon name="repeat" size={18} color={color.serviceTealInk} strokeWidth={2.1} /></View>
+            <View style={styles.grow}>
+              <Text style={m2Text.cardTitle}>{t('refill.link.fromMeds')}</Text>
+              <Text style={m2Text.meta}>{t('refill.link.fromMedsNote')}</Text>
+            </View>
+            <Icon name="chevron-right" size={16} color={color.text3} strokeWidth={2.4} />
+          </Pressable>
+        </Rise>
+      ) : null}
       <View {...webAttrs({ 'aria-hidden': 'true' })} style={styles.spacer} />
     </ScrollView>
   );
@@ -136,12 +151,14 @@ export const M2RemindersView = observer(function M2RemindersView({ vm, reminders
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.canvas },
   content: { paddingBottom: M2_NAV_CLEARANCE, gap: space.s16, width: '100%', maxWidth: size.phoneFrameMax, alignSelf: 'center' },
+  contentWide: { maxWidth: size.webContentMax - size.webSidebar * 2, paddingBottom: space.s40 },
   grow: { flex: 1, minWidth: 0, gap: space.s2 },
   gutter: { paddingHorizontal: space.gutterPhone },
   header: { flexDirection: 'row', alignItems: 'center', gap: space.s12, paddingHorizontal: space.gutterPhone, paddingTop: space.s16 },
   eyebrow: { fontFamily: font.family.sans, fontSize: font.size.caption, fontWeight: fontWeight(font.weight.strong), color: color.text3 },
   title: { fontFamily: font.family.sans, fontSize: font.size.title, fontWeight: fontWeight(font.weight.heavy), letterSpacing: -0.5, color: color.text },
   hero: { borderRadius: 28, padding: space.s20, gap: space.s8 },
+  heroWide: { borderRadius: 32 },
   heroEyebrow: { fontFamily: font.family.sans, fontSize: font.size.caption, fontWeight: fontWeight(font.weight.heavy), letterSpacing: 1, textTransform: 'uppercase', color: color.onHero },
   heroLine: { fontFamily: font.family.sans, fontSize: font.size.title, lineHeight: 26, fontWeight: fontWeight(font.weight.heavy), color: color.onHero },
   heroNote: { fontFamily: font.family.sans, fontSize: font.size.caption, lineHeight: 17, fontWeight: fontWeight(font.weight.strong), color: color.onHero },
@@ -158,5 +175,6 @@ const styles = StyleSheet.create({
     backgroundColor: color.surface,
   },
   linkTile: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: color.serviceSkySoft },
+  refillTile: { backgroundColor: color.serviceTealSoft },
   spacer: { height: space.s8 },
 });

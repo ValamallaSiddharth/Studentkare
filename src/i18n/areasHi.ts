@@ -6,6 +6,7 @@ import { adminHi } from './areas/admin';
 import { assistHi } from './areas/assist';
 import { authChannelsHi } from './areas/authChannels';
 import { authPasscodeHi } from './areas/authPasscode';
+import { autopilotHi } from './areas/autopilot';
 import { campsHi } from './areas/camps';
 import { campusBoardsHi } from './areas/campusBoards';
 import { campusConsoleHi } from './areas/campusConsole';
@@ -29,6 +30,7 @@ import { mobile2HealthHi } from './areas/mobile2health';
 import { mobile2Hi } from './areas/mobile2';
 import { mobile2OrdersHi } from './areas/mobile2Orders';
 import { mobile2WebHi } from './areas/mobile2Web';
+import { newsroomContentHi } from './areas/newsroomContent';
 import { newsroomHi } from './areas/newsroom';
 import { onboardHi } from './areas/onboard';
 import { partnerConsoleHi } from './areas/partnerConsole';
@@ -38,6 +40,8 @@ import { payHi } from './areas/pay';
 import { phoneboardsHi } from './areas/phoneboards';
 import { phonestoreHi } from './areas/phonestore';
 import { privacyHi } from './areas/privacy';
+import { pushHi } from './areas/push';
+import { refillsHi } from './areas/refills';
 import { rewardsHi } from './areas/rewards';
 import { safetyHi } from './areas/safety';
 import { shopwebHi } from './areas/shopweb';
@@ -66,6 +70,7 @@ export const areasHi = {
   ...assistHi,
   ...authChannelsHi,
   ...authPasscodeHi,
+  ...autopilotHi,
   ...campsHi,
   ...campusBoardsHi,
   ...campusConsoleHi,
@@ -89,6 +94,7 @@ export const areasHi = {
   ...mobile2Hi,
   ...mobile2OrdersHi,
   ...mobile2WebHi,
+  ...newsroomContentHi,
   ...newsroomHi,
   ...onboardHi,
   ...partnerConsoleHi,
@@ -98,6 +104,8 @@ export const areasHi = {
   ...phoneboardsHi,
   ...phonestoreHi,
   ...privacyHi,
+  ...pushHi,
+  ...refillsHi,
   ...rewardsHi,
   ...safetyHi,
   ...shopwebHi,
