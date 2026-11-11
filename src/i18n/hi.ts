@@ -13,6 +13,8 @@ export const hi: Catalog = {
   'common.done': 'हो गया',
   'common.skipToContent': 'सामग्री पर जाएँ',
   'common.retryConnection': 'कनेक्शन फिर से आज़माएँ',
+  'rating.rate': '{max} में से {n} रेट करें',
+  'rating.rated': '{max} में से {value} रेट किया गया',
 
   'lang.label': 'भाषा',
   'lang.reviewNote': 'तेलुगु और हिंदी नई हैं और अभी समीक्षा में हैं। कुछ स्क्रीन अभी भी अंग्रेज़ी में हैं।',

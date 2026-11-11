@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/design-system/icons';
 import type { SkIconName } from '@/design-system/icons';
 import { color, focusRing, font, fontWeight, radius, space } from '@/design-system/theme';
-import { GlossTile, M2Card, M2Note, M2Pill, RoundButton, m2Text } from '@/design-system/m2';
+import { GlossTile, M2Card, M2Note, M2Pill, RoundButton } from '@/design-system/m2';
 import type { PressState } from '@/design-system/m2';
 import { Pressable } from 'react-native';
 

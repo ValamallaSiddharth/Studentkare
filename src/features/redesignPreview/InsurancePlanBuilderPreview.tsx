@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/design-system/icons';
 import { color, focusRing, font, fontWeight, radius, space } from '@/design-system/theme';
-import { GlossTile, M2Card, M2Note, M2Pill, M2Table, m2TableText, m2Text, RoundButton } from '@/design-system/m2';
+import { M2Card, M2Note, M2Pill, M2Table, m2TableText, m2Text, RoundButton } from '@/design-system/m2';
 import type { M2TableColumn, PressState } from '@/design-system/m2';
 import { StepDiagram } from '@/design-system';
 
@@ -98,12 +98,12 @@ export function InsurancePlanBuilderPreview(): React.ReactElement {
             <View style={[styles.countRow, styles.countRowRule]}>
               <Text style={styles.countLabel}>Adults</Text>
               <View style={styles.stepper}>
-                <Pressable role="button" accessibilityRole="button" accessibilityLabel="One fewer adult" onPress={noop}
+                <Pressable role="button" accessibilityRole="button" accessibilityLabel="One fewer adult" onPress={() => setAdults((prev) => Math.max(1, prev - 1))}
                   style={({ focused }: PressState) => [styles.stepBtn, focused ? focusRing : null]}>
                   <Icon name="minus" size={16} color={color.action} />
                 </Pressable>
                 <Text style={styles.countValue}>{adults}</Text>
-                <Pressable role="button" accessibilityRole="button" accessibilityLabel="One more adult" onPress={noop}
+                <Pressable role="button" accessibilityRole="button" accessibilityLabel="One more adult" onPress={() => setAdults((prev) => prev + 1)}
                   style={({ focused }: PressState) => [styles.stepBtn, focused ? focusRing : null]}>
                   <Icon name="plus" size={16} color={color.action} />
                 </Pressable>
@@ -112,12 +112,12 @@ export function InsurancePlanBuilderPreview(): React.ReactElement {
             <View style={styles.countRow}>
               <Text style={styles.countLabel}>Children</Text>
               <View style={styles.stepper}>
-                <Pressable role="button" accessibilityRole="button" accessibilityLabel="One fewer child" onPress={noop}
+                <Pressable role="button" accessibilityRole="button" accessibilityLabel="One fewer child" onPress={() => setChildren((prev) => Math.max(0, prev - 1))}
                   style={({ focused }: PressState) => [styles.stepBtn, focused ? focusRing : null]}>
                   <Icon name="minus" size={16} color={color.action} />
                 </Pressable>
                 <Text style={styles.countValue}>{children}</Text>
-                <Pressable role="button" accessibilityRole="button" accessibilityLabel="One more child" onPress={noop}
+                <Pressable role="button" accessibilityRole="button" accessibilityLabel="One more child" onPress={() => setChildren((prev) => prev + 1)}
                   style={({ focused }: PressState) => [styles.stepBtn, focused ? focusRing : null]}>
                   <Icon name="plus" size={16} color={color.action} />
                 </Pressable>

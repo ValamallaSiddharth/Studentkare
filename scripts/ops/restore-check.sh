@@ -80,10 +80,12 @@ fi
 
 # 3. Restore into a fresh scratch database. Owners and grants are skipped: the
 # scratch server need not have the production roles (sk_commerce, ...).
+# Strip transaction_timeout so client tools from Postgres 17+ can restore into
+# Postgres 15 and 16 without error (docs/guides/backups.md).
 psql --no-password -q -v ON_ERROR_STOP=1 -d "$RESTORE_ADMIN_URL" -c "CREATE DATABASE \"$SCRATCH_DB\"" >/dev/null
 log "restoring into $SCRATCH_DB"
 start=$(date +%s)
-pg_restore --no-password --no-owner --no-acl --exit-on-error --dbname="$(scratch_url)" "$dump"
+pg_restore --no-password --no-owner --no-acl "$dump" | sed -E '/^[[:space:]]*SET[[:space:]]+transaction_timeout/d' | psql --no-password -q -v ON_ERROR_STOP=1 -d "$(scratch_url)" >/dev/null
 log "restored in $(( $(date +%s) - start ))s"
 
 # 4. Smoke queries: schema at a migration head, tables present, core rows readable.

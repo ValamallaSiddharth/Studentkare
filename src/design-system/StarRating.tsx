@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useT } from '@/i18n';
 import { Icon } from './icons';
 import { color, focusRing, font, fontWeight, space } from './theme';
 
@@ -21,20 +22,21 @@ export interface StarRatingProps {
 }
 
 export function StarRating({ value, max = 5, onChange, size = 20, label, testID }: StarRatingProps): React.ReactElement {
+  const t = useT();
   const stars = Array.from({ length: max }, (_, i) => i + 1);
   const interactive = typeof onChange === 'function';
   return (
-    <View style={styles.row} testID={testID} accessibilityRole={interactive ? undefined : 'text'} accessibilityLabel={interactive ? undefined : `Rated ${value} out of ${max}`}>
+    <View style={styles.row} testID={testID} accessibilityRole={interactive ? undefined : 'text'} accessibilityLabel={interactive ? undefined : t('rating.rated', { value, max })}>
       {stars.map((n) =>
         interactive ? (
           <Pressable
             key={n}
             role="button"
             accessibilityRole="button"
-            accessibilityLabel={`Rate ${n} out of ${max}`}
+            accessibilityLabel={t('rating.rate', { n, max })}
             accessibilityState={{ selected: n <= value }}
             onPress={() => onChange(n)}
-            style={({ focused }: { focused?: boolean }) => [styles.star, focused ? focusRing : null]}
+            style={({ focused }: { pressed: boolean; focused?: boolean }) => [styles.star, focused ? focusRing : null]}
           >
             <Icon name={n <= value ? 'star-filled' : 'star'} size={size} color={n <= value ? color.attention : color.text3} />
           </Pressable>

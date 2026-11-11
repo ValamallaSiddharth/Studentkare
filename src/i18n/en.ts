@@ -12,6 +12,8 @@ export const en = {
   'common.done': 'Done',
   'common.skipToContent': 'Skip to content',
   'common.retryConnection': 'Retry connection',
+  'rating.rate': 'Rate {n} out of {max}',
+  'rating.rated': 'Rated {value} out of {max}',
 
   'lang.label': 'Language',
   'lang.reviewNote': 'Telugu and Hindi are new and still being reviewed. Some screens are still in English.',

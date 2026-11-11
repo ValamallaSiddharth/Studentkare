@@ -13,6 +13,8 @@ export const te: Catalog = {
   'common.done': 'పూర్తయింది',
   'common.skipToContent': 'కంటెంట్‌కు వెళ్ళండి',
   'common.retryConnection': 'కనెక్షన్ మళ్ళీ ప్రయత్నించండి',
+  'rating.rate': '{max} లో {n} రేట్ చేయండి',
+  'rating.rated': '{max} లో {value} రేట్ చేయబడింది',
 
   'lang.label': 'భాష',
   'lang.reviewNote': 'తెలుగు మరియు హిందీ కొత్తవి, ఇంకా సమీక్షలో ఉన్నాయి. కొన్ని స్క్రీన్లు ఇంకా ఇంగ్లీష్‌లోనే ఉన్నాయి.',
