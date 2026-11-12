@@ -75,6 +75,12 @@ _COMPOSITION_PATTERN = re.compile(
     r"^\s*([A-Za-z][A-Za-z0-9 ,'./+-]*?)\s*\(?\s*([\d.]+)\s*([A-Za-z%/]+)\s*\)?\s*$"
 )
 
+_MIN_TEXT_LEN = 2
+_MAX_NAME_LEN = 160
+_MAX_MANUFACTURER_LEN = 120
+_MAX_PACK_LEN = 120
+_MAX_STRENGTH_VALUE = 100000
+
 
 class SkipRow(Exception):
     """Raised with a reason key to count why a row didn't import."""
@@ -82,7 +88,7 @@ class SkipRow(Exception):
 
 def clean_salt(raw: str) -> str:
     salt = " ".join(raw.split())
-    if len(salt) < 2 or not _SALT_PATTERN.match(salt):
+    if len(salt) < _MIN_TEXT_LEN or not _SALT_PATTERN.match(salt):
         raise SkipRow("bad_salt_name")
     return salt
 
@@ -103,7 +109,7 @@ def parse_ingredient(raw: str) -> tuple[str, float, str] | None:
         value = float(value_raw)
     except ValueError as exc:
         raise SkipRow("bad_strength_value") from exc
-    if not (0 < value <= 100000):
+    if not (0 < value <= _MAX_STRENGTH_VALUE):
         raise SkipRow("strength_out_of_range")
     return clean_salt(salt_raw), value, unit
 
@@ -123,9 +129,9 @@ def parse_row(row: dict[str, str]) -> dict:
     name = " ".join(row.get("name", "").split())
     manufacturer = " ".join(row.get("manufacturer_name", "").split())
     pack = " ".join(row.get("pack_size_label", "").split()) or "Pack size not stated"
-    if len(name) < 2 or len(manufacturer) < 2:
+    if len(name) < _MIN_TEXT_LEN or len(manufacturer) < _MIN_TEXT_LEN:
         raise SkipRow("missing_identity_field")
-    if len(name) > 160 or len(manufacturer) > 120 or len(pack) > 120:
+    if len(name) > _MAX_NAME_LEN or len(manufacturer) > _MAX_MANUFACTURER_LEN or len(pack) > _MAX_PACK_LEN:
         raise SkipRow("field_too_long")
 
     ingredients = []
