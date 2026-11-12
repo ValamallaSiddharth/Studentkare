@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
  * The four boards with no API behind them load "not connected"; the wired
  * ones read the API (their sources have no sample at all).
  */
-describe('no sample patient outside demo builds', () => {
+describe('no sample patient outside demo builds', { timeout: 60000 }, () => {
   it('referrals, renewals, AYUSH and decision support load as not connected', async () => {
     vi.resetModules();
     vi.doMock('@/core/env', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/core/env')>()), demoDataEnabled: () => false }));

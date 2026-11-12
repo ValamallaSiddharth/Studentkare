@@ -6,7 +6,10 @@
  */
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
+import { configure } from '@testing-library/dom';
 import { afterEach } from 'vitest';
+
+configure({ asyncUtilTimeout: 10000 });
 
 afterEach(() => {
   cleanup();

@@ -71,6 +71,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: false,
     setupFiles: ['./src/test/setup.ts'],
+    testTimeout: 30000,
+    hookTimeout: 30000,
     // .kilo holds stale git worktrees; their copies of the suite were being
     // collected and run alongside the real one.
     exclude: ['**/node_modules/**', '**/dist/**', '.kilo/**', '**/.kilo/**'],

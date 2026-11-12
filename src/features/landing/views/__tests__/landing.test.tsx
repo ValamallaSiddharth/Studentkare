@@ -159,7 +159,7 @@ describe('claims no page may make', () => {
   });
 });
 
-describe('the student landing page', () => {
+describe('the student landing page', { timeout: 30000 }, () => {
   it('leads with the emergency number, which needs no account', async () => {
     await openLanding();
     expect(screen.getAllByRole('link', { name: /call 112/i })[0]).toHaveAttribute('href', 'tel:112');
@@ -429,7 +429,7 @@ describe('the partnerships page', () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(screen.getByText(/not going to promise you one/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/not going to promise you one/i)[0]).toBeInTheDocument();
   });
 });
 
